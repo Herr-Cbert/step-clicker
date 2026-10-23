@@ -208,7 +208,7 @@
 		// Bei einem Klick auf GO wird die 'arbeitsDauer' runter gezaehlt
 		// ist die 'arbeitsDauer' auf null wird der 'verdienst' * 'objekteZahl'  zum 'guthaben' addiert
 		//
-		// Bei einem Klick auf KAUFEN wird bei genuegend 'guthaben' die 'objekteZahl' um eins erhoeht
+			// Bei einem Klick auf KAUFEN wird bei genuegend 'guthaben' die 'objekteZahl' um eins erhoeht
 		// Der 'aktuellerPreis' wird mit der 'preisSteigerung' multipliziert
 		//
 		// die 'arbeitsDauer' wird bei einer 'objekteZahl' von 10 25 50 100 250 500 jeweils halbiert
@@ -216,14 +216,18 @@
 
 
 		//###################################
-		// die Variablen
+				// die Variablen
 
+//		var guthaben=10000000000;	Reicht bis F
+//		var guthaben=30000000000000;
 		var guthaben=0;
 		var umsatz=0;
 		var gozaehler=0;
 		var lastMausGoZaehler=0;
 		var	globaFaktor=1.0;
 
+		var welt=2.2;
+		var	clicks=0;
 		
 		// pro Objekt
 
@@ -243,7 +247,7 @@
 		var arbeitsDauerDelta=[];
 		var aktuelleArbeitsDauer=[];
 
-		for(var i=0;i<12;i++)
+		for(var i=0;i<15;i++)
 		{
 			objektAktiv[i]=0;
 
@@ -256,77 +260,77 @@
 		}
 
 
-		aktuellerPreis[0]=4.0;
-		preisSteigerung[0]=1.06;
+		aktuellerPreis[0]=4.0;			//A
+		preisSteigerung[0]=1.07;
 		automatikPreis[0]=100;
 		verdienst[0]=1;
 		arbeitsDauer[0]=25;	// eigendlich 64
 
-		aktuellerPreis[1]=60.0;
+		aktuellerPreis[1]=60.0;			//B
 		preisSteigerung[1]=1.15;
-		automatikPreis[1]=2000;
+		automatikPreis[1]=4000;
 		verdienst[1]=30;
 		arbeitsDauer[1]=50;	// eigendlich 64
 
-		aktuellerPreis[2]=1000.0;
-		preisSteigerung[2]=1.14;
+		aktuellerPreis[2]=1000.0;		//C
+		preisSteigerung[2]=1.12;
 		automatikPreis[2]=22000;
 		verdienst[2]=260;
 		arbeitsDauer[2]=100;	// eigendlich 64
 
-		aktuellerPreis[3]=8600.0;
-		preisSteigerung[3]=1.145;
+		aktuellerPreis[3]=8600.0;		//D
+		preisSteigerung[3]=1.135;
 		automatikPreis[3]=200000;
 		verdienst[3]=1080;
 		arbeitsDauer[3]=180;	// eigendlich 64
 
-		aktuellerPreis[4]=25000.0;		// 12s
-		preisSteigerung[4]=1.145;
+		aktuellerPreis[4]=80000.0;		// 12s
+		preisSteigerung[4]=1.145;		//E
 		automatikPreis[4]=550000;
 		verdienst[4]=25000;
 		arbeitsDauer[4]=280;	// eigendlich 64
 
-		aktuellerPreis[5]=75000.0;		// 20s
-		preisSteigerung[5]=1.15;
-		automatikPreis[5]=2000000;
+		aktuellerPreis[5]=1000000.0;		// 20s
+		preisSteigerung[5]=1.13;		//F
+		automatikPreis[5]=10000000;
 		verdienst[5]=75000;
 		arbeitsDauer[5]=300;	// eigendlich 64
 
-		aktuellerPreis[6]=840000.0;		// 30s
-		preisSteigerung[6]=1.11;
-		automatikPreis[6]=10000000;
+		aktuellerPreis[6]=2840000.0;		// 30s
+		preisSteigerung[6]=1.10;		//G
+		automatikPreis[6]=60000000;
 		verdienst[6]=380000;
 		arbeitsDauer[6]=400;	// eigendlich 64
 
-		aktuellerPreis[7]=2000000.0;		// 40s
-		preisSteigerung[7]=1.16;
-		automatikPreis[7]=25000000;
+		aktuellerPreis[7]=4000000.0;		// 40s
+		preisSteigerung[7]=1.11;		//H
+		automatikPreis[7]=300000000;
 		verdienst[7]=950000;
 		arbeitsDauer[7]=500;
 
-		aktuellerPreis[8]=8000000.0;
+		aktuellerPreis[8]=8000000.0;		//I
 		preisSteigerung[8]=1.18;
-		automatikPreis[8]=50000000;
+		automatikPreis[8]=1000000000;
 		verdienst[8]=2000000;
-		arbeitsDauer[8]=800;
+		arbeitsDauer[8]=600;
 		
-		aktuellerPreis[9]=20000000.0;
+		aktuellerPreis[9]=1000000000.0;		//J
 		preisSteigerung[9]=1.04;
-		automatikPreis[9]=150000000;
+		automatikPreis[9]=60000000000;
 		verdienst[9]=4000000;
-		arbeitsDauer[9]=900;
+		arbeitsDauer[9]=700;
 
-		aktuellerPreis[10]=80000000.0;
-		preisSteigerung[10]=1.16;
-		automatikPreis[10]=350000000;
+		aktuellerPreis[10]=6000000000.0;		//K
+		preisSteigerung[10]=1.08;
+			automatikPreis[10]=200000000000;
 		verdienst[10]=9000000;
 		arbeitsDauer[10]=800;
 
-		aktuellerPreis[11]=300000000.0;
-		preisSteigerung[11]=1.02;
-		automatikPreis[11]=900000000;
-		verdienst[11]=20000000;
-		arbeitsDauer[11]=1000;
+		aktuellerPreis[11]=50000000000.0;		//L
+		preisSteigerung[11]=1.03;
+		automatikPreis[11]=1000000000000;
+		verdienst[11]=2000000000;
+		arbeitsDauer[11]=900;
 
 
 
@@ -335,7 +339,7 @@
 		var b_preis=[];
 		var b_gekauft=[];
 
-		for(var i=0;i<9;i++)
+		for(var i=0;i<11;i++)
 		{
 			b_buchstabe[i]=i;
 			b_faktor[i]=1.0;
@@ -343,9 +347,38 @@
 			b_gekauft[i]=0;
 		}
 
-		b_buchstabe[0]=0;
-		b_faktor[0]=25;
+		b_faktor[0]=15;				//A
 		b_preis[0]=300000;
+
+		b_faktor[1]=10;				//B
+		b_preis[1]=1000000;
+
+		b_faktor[2]=40;				//C
+		b_preis[2]=6000000;
+
+		b_faktor[3]=10;				//D
+		b_preis[3]=20000000;
+
+		b_faktor[4]=30;				//E
+		b_preis[4]=200000000;
+
+		b_faktor[5]=50;				//F
+		b_preis[5]=1000000000;
+
+		b_faktor[6]=70;				//G
+		b_preis[6]=4000000000;
+
+		b_faktor[7]=30;				//H
+		b_preis[7]=20000000000;	
+
+		b_faktor[8]=50;				//I
+		b_preis[8]=80000000000;
+
+		b_faktor[9]=30;				//J
+		b_preis[9]=200000000000;
+
+		b_faktor[10]=100;			//K
+		b_preis[10]=800000000000;
 
 
 
@@ -360,6 +393,7 @@
 			x=evt.offsetX;
 			y=evt.offsetY;
 
+			clicks++;
 			lastMausGoZaehler=gozaehler;
 			globaFaktor=1.0;
 
@@ -388,7 +422,7 @@
 							guthaben-=aktuellerPreis[i];
 							objekteZahl[i]++;
 							aktuellerPreis[i]*=preisSteigerung[i];
-							if ((objekteZahl[i]==10) || (objekteZahl[i]==25) || (objekteZahl[i]==50) || (objekteZahl[i]==100) || (objekteZahl[i]==250) || (objekteZahl[i]==500) || (objekteZahl[i]==1000))
+							if ((objekteZahl[i]==10) || (objekteZahl[i]==20) || (objekteZahl[i]==40) || (objekteZahl[i]==60) || (objekteZahl[i]==80) || (objekteZahl[i]==100) || (objekteZahl[i]==120))
 								arbeitsDauer[i]/=2;
 						}
 					}
@@ -411,9 +445,9 @@
 
 			//####################################
 			// Die Bonesen
-			for(var i=0;i<9;i++)
+			for(var i=0;i<11;i++)
 			{
-				if ((x>540)&&(x<730)&&(y>63+i*58)&&(y<113+i*53))
+				if ((x>540)&&(x<730)&&(y>63+i*58)&&(y<113+i*58))
 				{
 					if ((guthaben>=b_preis[i])&&(b_gekauft[i]==0))
 					{
@@ -443,8 +477,8 @@
 						if (aktuelleArbeitsDauer[i]<=0)
 						{
 							aktuelleArbeitsDauer[i]=0;
-							guthaben+=verdienst[i]*objekteZahl[i]*globaFaktor;
-							umsatz+=verdienst[i]*objekteZahl[i]*globaFaktor;
+							guthaben+=verdienst[i]*objekteZahl[i]*globaFaktor*welt;
+							umsatz+=verdienst[i]*objekteZahl[i]*globaFaktor*welt;
 
 							if (automatik[i]==1)
 								aktuelleArbeitsDauer[i]=arbeitsDauer[i];
@@ -464,14 +498,12 @@
 		{
 			gozaehler++;
 
-			if (gozaehler-lastMausGoZaehler>5000) globaFaktor=0.8;
-			if (gozaehler-lastMausGoZaehler>10000) globaFaktor=0.6;
-			if (gozaehler-lastMausGoZaehler>15000) globaFaktor=0.4;
-			if (gozaehler-lastMausGoZaehler>20000) globaFaktor=0.2;
-			if (gozaehler-lastMausGoZaehler>25000) globaFaktor=0.01;
+			if (gozaehler-lastMausGoZaehler>1000) globaFaktor=0.8;
+			if (gozaehler-lastMausGoZaehler>2000) globaFaktor=0.6;
+			if (gozaehler-lastMausGoZaehler>3000) globaFaktor=0.1;
 
 
-			bar(0,0,750,600,200,200,170);
+			bar(0,0,750,740,200,200,170);
 		
 			
 
@@ -482,8 +514,11 @@
 			var text= "$" + toPoint2(toPoint1(guthaben,3));
 			graTextOut(10,40,30,text,0,0,0);
 			
-//			var text= "Umsatz: $" + toPoint2(toPoint1(umsatz,3));
-//			graTextOut(300,40,12,text,0,0,0);
+			var text= "Umsatz: $" + toPoint2(toPoint1(umsatz,3));
+			graTextOut(300,12,12,text,0,0,0);
+
+			var text= "Klicks: " + clicks;
+			graTextOut(450,12,12,text,0,0,0);
 
 			bar(10,45,730,3,0,0,0);
 
@@ -503,16 +538,16 @@
 		
 					bar(5+dx*170,55+dy*170,160,160,160,160,130);
 
-					if (i==0) graTextOut(145+dx*170,75+dy*170,20,"A",0,0,100);
-					if (i==1) graTextOut(145+dx*170,75+dy*170,20,"B",0,0,100);
-					if (i==2) graTextOut(145+dx*170,75+dy*170,20,"C",0,0,100);
-					if (i==3) graTextOut(145+dx*170,75+dy*170,20,"D",0,0,100);
-					if (i==4) graTextOut(145+dx*170,75+dy*170,20,"E",0,0,100);
-					if (i==5) graTextOut(145+dx*170,75+dy*170,20,"F",0,0,100);
-					if (i==6) graTextOut(145+dx*170,75+dy*170,20,"G",0,0,100);
-					if (i==7) graTextOut(145+dx*170,75+dy*170,20,"H",0,0,100);
-					if (i==8) graTextOut(145+dx*170,75+dy*170,20,"I",0,0,100);
-					if (i==9) graTextOut(145+dx*170,75+dy*170,20,"J",0,0,100);
+					if (i== 0) graTextOut(145+dx*170,75+dy*170,20,"A",0,0,100);
+					if (i== 1) graTextOut(145+dx*170,75+dy*170,20,"B",0,0,100);
+					if (i== 2) graTextOut(145+dx*170,75+dy*170,20,"C",0,0,100);
+					if (i== 3) graTextOut(145+dx*170,75+dy*170,20,"D",0,0,100);
+					if (i== 4) graTextOut(145+dx*170,75+dy*170,20,"E",0,0,100);
+					if (i== 5) graTextOut(145+dx*170,75+dy*170,20,"F",0,0,100);
+					if (i== 6) graTextOut(145+dx*170,75+dy*170,20,"G",0,0,100);
+					if (i== 7) graTextOut(145+dx*170,75+dy*170,20,"H",0,0,100);
+					if (i== 8) graTextOut(145+dx*170,75+dy*170,20,"I",0,0,100);
+					if (i== 9) graTextOut(145+dx*170,75+dy*170,20,"J",0,0,100);
 					if (i==10) graTextOut(145+dx*170,75+dy*170,20,"K",0,0,100);
 					if (i==11) graTextOut(145+dx*170,75+dy*170,20,"L",0,0,100);
 
@@ -530,7 +565,7 @@
 						graTextOut(19+dx*170,95+dy*170,40,"*",120,120,120);
 					}
 
-					var text=toPoint(objekteZahl[i]) + "x" + toPoint2(toPoint1(verdienst[i]*globaFaktor,3));
+					var text=toPoint(objekteZahl[i]) + "x" + toPoint2(toPoint1(verdienst[i]*globaFaktor*welt,3));
 					graTextOut(55+dx*170,90+dy*170,14,text,0,0,0);
 
 					//#######################################
@@ -579,10 +614,10 @@
 						bar(138+dx*170, 98+k*5+dy*170, 20,4,130,130,130);
 
 					if (objekteZahl[i]>=10)		bar(138+dx*170, 118+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=25)		bar(138+dx*170, 113+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=50)		bar(138+dx*170, 108+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=100)	bar(138+dx*170, 103+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=250)	bar(138+dx*170,  98+dy*170, 20,4,50,50,250);
+					if (objekteZahl[i]>=20)		bar(138+dx*170, 113+dy*170, 20,4,50,50,250);
+					if (objekteZahl[i]>=40)		bar(138+dx*170, 108+dy*170, 20,4,50,50,250);
+					if (objekteZahl[i]>=60)		bar(138+dx*170, 103+dy*170, 20,4,50,50,250);
+					if (objekteZahl[i]>=80)		bar(138+dx*170,  98+dy*170, 20,4,50,50,250);
 
 
 					//#######################################
@@ -591,19 +626,19 @@
 					{
 						bar1(10+dx*170,130+dy*170,150,30,0,155,180,155);
 
-						line(20+dx*170,140+dx*170,45+dx*170,140+dy*170,0,0,0);
-						line(22+dx*170,144+dx*170,43+dx*170,144+dy*170,0,0,0);
-						line(24+dx*170,148+dx*170,41+dx*170,148+dy*170,0,0,0);
+						line(20+dx*170,140+dy*170,45+dx*170,140+dy*170,0,0,0);
+						line(22+dx*170,144+dy*170,43+dx*170,144+dy*170,0,0,0);
+						line(24+dx*170,148+dy*170,41+dx*170,148+dy*170,0,0,0);
 					
-						line(26+dx*170,140+dx*170,26+dx*170,148+dy*170,0,0,0);
-						line(30+dx*170,140+dx*170,30+dx*170,148+dy*170,0,0,0);
-						line(34+dx*170,140+dx*170,34+dx*170,148+dy*170,0,0,0);
-						line(38+dx*170,140+dx*170,38+dx*170,148+dy*170,0,0,0);
+						line(26+dx*170,140+dy*170,26+dx*170,148+dy*170,0,0,0);
+						line(30+dx*170,140+dy*170,30+dx*170,148+dy*170,0,0,0);
+						line(34+dx*170,140+dy*170,34+dx*170,148+dy*170,0,0,0);
+						line(38+dx*170,140+dy*170,38+dx*170,148+dy*170,0,0,0);
 					
-						line(24+dx*170,148+dx*170,18+dx*170,136+dy*170,0,0,0);
+						line(24+dx*170,148+dy*170,18+dx*170,136+dy*170,0,0,0);
 						line(18+dx*170,136+dy*170,15+dx*170,136+dy*170,0,0,0);
 
-						line(45+dx*170,140+dx*170,41+dx*170,148+dy*170,0,0,0);
+						line(45+dx*170,140+dy*170,41+dx*170,148+dy*170,0,0,0);
 
 						circle(27+dx*170,153+dy*170,2,0,0,0);
 						circle(38+dx*170,153+dy*170,2,0,0,0);
@@ -612,19 +647,19 @@
 					{	
 						bar1(10+dx*170,130+dy*170,150,30,0,155,155,155);
 						
-						line(20+dx*170,140+dx*170,45+dx*170,140+dy*170,105,105,105);
-						line(22+dx*170,144+dx*170,43+dx*170,144+dy*170,105,105,105);
-						line(24+dx*170,148+dx*170,41+dx*170,148+dy*170,105,105,105);
+						line(20+dx*170,140+dy*170,45+dx*170,140+dy*170,105,105,105);
+						line(22+dx*170,144+dy*170,43+dx*170,144+dy*170,105,105,105);
+						line(24+dx*170,148+dy*170,41+dx*170,148+dy*170,105,105,105);
 					
-						line(26+dx*170,140+dx*170,26+dx*170,148+dy*170,105,105,105);
-						line(30+dx*170,140+dx*170,30+dx*170,148+dy*170,105,105,105);
-						line(34+dx*170,140+dx*170,34+dx*170,148+dy*170,105,105,105);
-						line(38+dx*170,140+dx*170,38+dx*170,148+dy*170,105,105,105);
+						line(26+dx*170,140+dy*170,26+dx*170,148+dy*170,105,105,105);
+						line(30+dx*170,140+dy*170,30+dx*170,148+dy*170,105,105,105);
+						line(34+dx*170,140+dy*170,34+dx*170,148+dy*170,105,105,105);
+						line(38+dx*170,140+dy*170,38+dx*170,148+dy*170,105,105,105);
 					
-						line(24+dx*170,148+dx*170,18+dx*170,136+dy*170,105,105,105);
+						line(24+dx*170,148+dy*170,18+dx*170,136+dy*170,105,105,105);
 						line(18+dx*170,136+dy*170,15+dx*170,136+dy*170,105,105,105);
 
-						line(45+dx*170,140+dx*170,41+dx*170,148+dy*170,105,105,105);
+						line(45+dx*170,140+dy*170,41+dx*170,148+dy*170,105,105,105);
 
 						circle(27+dx*170,153+dy*170,2,105,105,105);
 						circle(38+dx*170,153+dy*170,2,105,105,105);
@@ -638,9 +673,23 @@
 					// Die Dollares per Sekundo Anzeige
 					if (automatik[i]>0)
 					{
-						var dps1=verdienst[i]*objekteZahl[i]*globaFaktor/(arbeitsDauer[i]/10);
+						var sum=0;
+						for(var d=0;d<12;d++)
+		 				{
+		 					if (automatik[d]>0)
+								sum+=verdienst[d]*objekteZahl[d]*globaFaktor*welt/(arbeitsDauer[d]/10);
+						}
+
+						var dps1=verdienst[i]*objekteZahl[i]*globaFaktor*welt/(arbeitsDauer[i]/10);
 						var dps="$" +toPoint2(toPoint1(dps1,3))+ "/s";
 						graTextOut(15+dx*170,175+dy*170,14,dps,0,0,0);
+						
+						if (sum>0)
+							dps1=100.0*dps1/sum;
+						else
+							dps1=0;
+						var dpsp= toPoint1(dps1,1)+ "%";
+						graTextOut(15+dx*170,195+dy*170,14,dpsp,0,0,0);
 					}
 
 					//#######################################
@@ -674,8 +723,9 @@
 
 			//############################################
 			// Bonesen Boni Bonusse
-			bar1(530,55,210,530,1,150,150,170);
-			for(var i=0;i<9;i++)
+			bar1(530,55,210,650,1,150,150,170);
+
+			for(var i=0;i<11;i++)
 			{
 				bar1(540,63+i*58,190,50,1,180,180,160);
 
@@ -688,7 +738,7 @@
 			//b_sichtarkeitsUmsatz[i]=0;
 
 			var bonizaehler=0;
-			for(var i=0;i<20;i++)	// Bonizahl
+			for(var i=0;i<11;i++)	// Bonizahl
 			{
 				var b="";
 				if (b_buchstabe[i]==0) b="A";if (b_buchstabe[i]==1)  b="B";if (b_buchstabe[i]==2) b="C";
@@ -720,8 +770,105 @@
 				
 				
 				bonizaehler++;
-				if (bonizaehler>8)
+				if (bonizaehler>10)
 					break;
+			}
+						
+			if (objekteZahl[11]>39)
+			{
+				welt*=1.1;
+
+				
+				guthaben=0;
+
+				for(var i=0;i<15;i++)
+				{
+					objektAktiv[i]=0;
+					automatik[i]=0;
+					automatikObjekteShow[i]=10
+					objekteZahl[i]=1;
+					aktuelleArbeitsDauer[i]=0;
+				}
+		
+				objektAktiv[0]=1;
+
+				aktuellerPreis[0]=4.0;			//A
+				preisSteigerung[0]=1.07;
+				automatikPreis[0]=100;
+				verdienst[0]=1;
+				arbeitsDauer[0]=25;	// eigendlich 64
+		
+				aktuellerPreis[1]=60.0;			//B
+				preisSteigerung[1]=1.15;
+				automatikPreis[1]=4000;
+				verdienst[1]=30;
+				arbeitsDauer[1]=50;	// eigendlich 64
+		
+				aktuellerPreis[2]=1000.0;		//C
+				preisSteigerung[2]=1.12;
+				automatikPreis[2]=22000;
+				verdienst[2]=260;
+				arbeitsDauer[2]=100;	// eigendlich 64
+		
+				aktuellerPreis[3]=8600.0;		//D
+				preisSteigerung[3]=1.135;
+				automatikPreis[3]=200000;
+				verdienst[3]=1080;
+				arbeitsDauer[3]=180;	// eigendlich 64
+		
+				aktuellerPreis[4]=80000.0;		// 12s
+				preisSteigerung[4]=1.145;		//E
+				automatikPreis[4]=550000;
+				verdienst[4]=25000;
+				arbeitsDauer[4]=280;	// eigendlich 64
+		
+				aktuellerPreis[5]=1000000.0;		// 20s
+				preisSteigerung[5]=1.13;		//F
+				automatikPreis[5]=10000000;
+				verdienst[5]=75000;
+				arbeitsDauer[5]=300;	// eigendlich 64
+		
+				aktuellerPreis[6]=2840000.0;		// 30s
+				preisSteigerung[6]=1.10;		//G
+				automatikPreis[6]=60000000;
+				verdienst[6]=380000;
+				arbeitsDauer[6]=400;	// eigendlich 64
+		
+				aktuellerPreis[7]=4000000.0;		// 40s
+				preisSteigerung[7]=1.11;		//H
+				automatikPreis[7]=300000000;
+				verdienst[7]=950000;
+				arbeitsDauer[7]=500;
+		
+				aktuellerPreis[8]=8000000.0;		//I
+				preisSteigerung[8]=1.18;
+				automatikPreis[8]=1000000000;
+				verdienst[8]=2000000;
+				arbeitsDauer[8]=600;
+				
+				aktuellerPreis[9]=1000000000.0;		//J
+				preisSteigerung[9]=1.04;
+				automatikPreis[9]=60000000000;
+				verdienst[9]=4000000;
+				arbeitsDauer[9]=700;
+		
+				aktuellerPreis[10]=6000000000.0;		//K
+				preisSteigerung[10]=1.08;
+				automatikPreis[10]=500000000000;
+				verdienst[10]=9000000;
+				arbeitsDauer[10]=800;
+		
+				aktuellerPreis[11]=50000000000.0;		//L
+				preisSteigerung[11]=1.03;
+				automatikPreis[11]=1000000000000;
+				verdienst[11]=2000000000;
+				arbeitsDauer[11]=900;
+		
+				for(var i=0;i<11;i++)
+				{
+					b_buchstabe[i]=i;
+					b_gekauft[i]=0;
+				}
 			}
 				
 				
