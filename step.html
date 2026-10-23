@@ -148,59 +148,40 @@
 
 
 
-
 		//###################################
-		//	Der Rohstoff 
-
-		var transportlevel=0;
-		var clicksPerRohstoff=100;
-		var clicksPerRohstoffSteigerung=1.5;
-		var rohstoff=10;
-		var rohstoffDelta=10;
-		var rohstoffDeltaSteigerung=1.2;
-
-		
-		var autoRohstoffDelta=1;
-		var autoRohstoffDeltaSteigerung=1.1;
-
+		// Das Vorgehen:
+		// Bei einem Klick auf GO wird die 'arbeitsDauer' runter gezaehlt
+		// ist die 'arbeitsDauer' auf null wird der 'verdienst' * 'objekteZahl'  zum 'guthaben' addiert
+		//
+		// Bei einem Klick auf KAUFEN wird bei genuegend 'guthaben' die 'objekteZahl' um eins erhoeht
+		// Der 'aktuellerPreis' wird mit der 'preisSteigerung' multipliziert
+		//
+		// die 'arbeitsDauer' wird bei einer 'objekteZahl' von 10 25 50 100 250 500 jeweils halbiert
 
 
 
 		//###################################
-		// Die Maschinen
+		// die Variablen
+
+		var aktuellerPreis=1.0;
+		var preisSteigerung=1.2;
+
+		var automatik=0;
+		var automatikPreis=100;
+		var automatikObjekteShow=10
 		
-		var	helderzahl=100;
-		var m_maximaleAusbaustufe=[];	// muss durch 5 teilbar sein
-		var m_aktuelleAusbaustufe=[];
+		var objekteZahl=1;
+		var objektMultiplikator=1.0;
+		var verdienst=1;
+		var guthaben=0;
 
-		var m_preis=[];
-		var m_preisSteigerung=[];
-		var	m_bonusPreis=[];
-		var	m_bonusPreisSteigerung=[];
-		var	m_aktuellerBonusPreis=[];		// alle 5 Ausbaustufen gibt es einen Bonuspreis
-			
-		var m_clicksPerSecond=[];
-		var m_clicksPerSecondSteigerung=[];
+		var arbeitsDauer=32;	// in 0.1 Sekunden Schritten
+		var arbeitsDauerDelta=1;
+		var aktuelleArbeitsDauer=0;
 
-		var	m_multiplikator=[];
 
-		for(var i=0;i<100;i++)
-		{
-			m_maximaleAusbaustufe[i]=100;
-			m_aktuelleAusbaustufe[i]=0;
 
-			m_preis[i]=i*10;
-			m_preisSteigerung[i]=1.01;
-			m_bonusPreis[i]=i*20;
-			m_bonusPreisSteigerung[i]=i*20;
-			m_aktuellerBonusPreis[i]=0;
-			
-			m_clicksPerSecond[i]=i;
-			m_clicksPerSecondSteigerung[i]=1.02;
 
-			m_multiplikator[i]=1.0;
-		}
-			
 
 
 		function Mausklick (evt) 
@@ -208,74 +189,121 @@
 			x=evt.offsetX;
 			y=evt.offsetY;
 	
-			if ((x>15)&&(x<115)&&(y>100)&&(y<130))	// Energie Button
+			if ((x>10)&&(x<70)&&(y>50)&&(y<80))	// GO Button
 			{
-				rohstoff+=rohstoffDelta;
-				if (rohstoff>clicksPerRohstoff)
+				if (aktuelleArbeitsDauer==0)
+				 	aktuelleArbeitsDauer=arbeitsDauer;
+			}
+			
+			if ((x>10)&&(x<160)&&(y>130)&&(y<160))	// BUY Button
+			{
+				if (guthaben>=aktuellerPreis)
 				{
-					transportlevel++;
-					rohstoff=0;
-					clicksPerRohstoff*=clicksPerRohstoffSteigerung;
-					rohstoffDelta*=rohstoffDeltaSteigerung;
+					guthaben-=aktuellerPreis;
+					objekteZahl++;
+					aktuellerPreis*=preisSteigerung;
+					if ((objekteZahl==10) || (objekteZahl==25) || (objekteZahl==50))	
+						arbeitsDauerDelta*=2;
+				}
+			}
+			
+			if ((x>10)&&(x<160)&&(y>170)&&(y<200))	// automatik Button
+			{
+				if (automatik==0)
+				{
+					if (guthaben>=automatikPreis)
+					{
+						automatik=1;
+						guthaben-=automatikPreis;
+						if (aktuelleArbeitsDauer==0)
+				 			aktuelleArbeitsDauer=arbeitsDauer;
+					}
 				}
 			}
 		}
 
 
 
-//########################################################################################################################################################################## go1
-//########################################################################################################################################################################## go1
-//########################################################################################################################################################################## go1
-//########################################################################################################################################################################## go1
-//########################################################################################################################################################################## go1
-//########################################################################################################################################################################## go1
-//########################################################################################################################################################################## go1
+//######################################################################################################## go1
+//######################################################################################################## go1
+//######################################################################################################## go1
+//######################################################################################################## go1
 		function go1()	// 0.1 Sekunde
 		{
-			rohstoff+=autoRohstoffDelta;
-			if (rohstoff>clicksPerRohstoff)
-				rohstoff=0;
-			aktuellesRohstoffVolumen*=aktuellesRohstoffVolumenSteigerung;
-			autoRohstoffDelta*=autoRohstoffDeltaSteigerung;
+			if (aktuelleArbeitsDauer>0)
+			{
+				aktuelleArbeitsDauer-=arbeitsDauerDelta;
+				if (aktuelleArbeitsDauer<=0)
+				{
+					aktuelleArbeitsDauer=0;
+					guthaben+=verdienst*objekteZahl;
+					if (automatik==1)
+						aktuelleArbeitsDauer=arbeitsDauer;
+				}
+			}
 		}
 
 
 
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
-//########################################################################################################################################################################## go
+//######################################################################################################## go
+//######################################################################################################## go
+//######################################################################################################## go
+//######################################################################################################## go
 		function go()
 		{
 			
 			bar(0,0,620,600,255,255,255);
 		
 			
-			bar(10,100,100,30,55,55,55);
+//			bar(10,100,100,30,55,55,55);
 
 			graTextOut(560,8,12,"V 0.80124",0,0,0);
 
-			graTextOut(10,20,16,"Stufe:",0,0,0);
-			var text=toPoint((transportlevel-transportlevel%5)/5+1) + " / " + (transportlevel%5+1);
-			graTextOut(150,20,16,text,0,0,0);
+			var text= toPoint(guthaben) + " $";
+			graTextOut(10,40,30,text,0,0,0);
 			
-			graTextOut(10,40,16,"Transportvolumen:",0,0,0);
-			var text=toPoint(rohstoff) + " vom " + toPoint(clicksPerRohstoff);
-			graTextOut(150,40,16,text,0,0,0);
 
-			bar(10,50,300,30,155,155,155);
-			var breite=rohstoff*300.0/clicksPerRohstoff;
-			bar(10,50,breite,30,0,255,0);
-			
-			graTextOut(10,150,16,"Volumen pro Click:",0,0,0);
-			var text=" " + toPoint(rohstoffDelta);
-			graTextOut(150,150,16,text,0,0,0);
+			bar(10,50,60,30,155,155,155);
+			graTextOut(30,70,16,"GO",0,0,0);
+			var text=toPoint(objekteZahl) + " x " +toPoint1(objektMultiplikator,2);
+			graTextOut(80,70,16,text,0,0,0);
 
+			graTextOut(80,70,16,text,0,0,0);
+
+
+
+			bar(10,85,152,30,100,100,100);
+			if (aktuelleArbeitsDauer>0)
+			{
+				bar(12,87,(arbeitsDauer-aktuelleArbeitsDauer)*150/arbeitsDauer,26,0,200,200)
+				var text=toPoint(100-aktuelleArbeitsDauer*100/128);
+				graTextOut(20,105,16,text,0,0,0);
+			}
+
+			if (objekteZahl>=10)	bar(164,85, 6,4,0,0,200);
+			if (objekteZahl>=25)	bar(164,90, 6,4,0,0,200);
+			if (objekteZahl>=50)	bar(164,95, 6,4,0,0,200);
+			if (objekteZahl>=100)	bar(164,100,6,4,0,0,200);
+
+
+
+			if (guthaben>=aktuellerPreis)
+				bar(10,130,150,30,0,155,0);
+			else
+				bar(10,130,150,30,155,155,155);
+			var text="Buy (" + toPoint1(aktuellerPreis,2) + " $)";
+			graTextOut(15,150,16,text,0,0,0);
+
+			// Der Automatikbutton
+			if ((objekteZahl>=automatikObjekteShow)&&(automatik==0))
+			{
+				if (guthaben>=automatikPreis)
+					bar(10,170,150,30,0,155,0);
+				else
+					bar(10,170,150,30,155,155,155);
+				var text="AUTO " + toPoint(automatikPreis) + " $";
+				graTextOut(20,190,16,text,0,0,0);
+			}
 		}
 
 		function start()
