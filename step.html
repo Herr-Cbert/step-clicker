@@ -1,893 +1,672 @@
-<html>
-	<head>
-		<title>Test</title>
-	</head>
-	
-	<body>
-	    <canvas id="myCanvas" width="800" height="800"></canvas>
-		<script type="text/javascript">
-	
-//		document.onkeypress = Tastendruck;	// die Funktion Tastendruck wird angemeldet
-		document.onclick = Mausklick;		// die Funktion Mausklick wird angemeldet
-    	
-		var canvas = document.getElementById('myCanvas');
-    	var context = canvas.getContext('2d');
-		var x=100;
-		var y=100;
+<!DOCTYPE html>
+<!--
+	Step Clicker
+-->
+<html lang="de">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Step Clicker</title>
+	<style>
+		body   { margin: 0; background: #ffffff; }
+		/* max-width: Canvas skaliert auf kleinen Bildschirmen; die Klick-Umrechnung berücksichtigt das */
+		canvas { display: block; max-width: 100%; height: auto; touch-action: manipulation; user-select: none; }
+	</style>
+</head>
 
-//		alert( " Hallo " );
+<body>
+	<canvas id="myCanvas" width="800" height="800"></canvas>
 
-		function toInteger(number)
-		{ 
-			return Math.round( Number(number) ); 
+	<script>
+	"use strict";
+
+	//##########################################################################################
+	// Das Vorgehen (Spielmechanik):
+	//
+	// - Bei einem Klick auf GO (*) wird die 'arbeitsDauer' des Objekts in 0,1-s-Schritten
+	//   heruntergezählt. Ist sie abgelaufen, wird verdienst * objekteZahl * globaFaktor * welt
+	//   zum 'guthaben' addiert.
+	// - KAUFEN erhöht bei genügend 'guthaben' die 'objekteZahl' um eins; der Preis wird mit
+	//   'preisSteigerung' multipliziert.
+	// - Bei einer 'objekteZahl' von 10, 20, 40, 60, 80, 100, 120 wird die 'arbeitsDauer' halbiert.
+	//   Hinweis: Der Spieltakt ist 0,1 s. Eine Arbeitsdauer unter 1 Takt bringt nichts mehr,
+	//   eine Runde dauert immer mindestens 0,1 s (siehe effektiveTicks()).
+	// - AUTO: nach dem Kauf startet das Objekt nach jeder Runde automatisch neu.
+	// - BONI (rechte Spalte): multiplizieren den 'verdienst' eines Objekts einmalig.
+	// - Objekt i+1 wird freigeschaltet, sobald Objekt i 10 + 4*i Stück hat.
+	// - Idle-Strafe: ohne Klick sinkt 'globaFaktor' nach 10 s auf 0,8, nach 20 s auf 0,6,
+	//   nach 30 s auf 0,1. Jeder Klick (irgendwo auf dem Canvas) setzt ihn wieder auf 1,0.
+	// - Prestige: hat L 40 Stück, wird alles zurückgesetzt und 'welt' um 10 % erhöht.
+	//##########################################################################################
+
+	(function ()
+	{
+		//======================================================================================
+		// Konstanten
+		//======================================================================================
+
+		const VERSION            = "V 0.8191220-r1";
+		const ANZAHL_OBJEKTE     = 12;                // A..L
+		const ANZAHL_BONI        = 11;                // Boni für A..K (L hat keinen Bonus)
+		const BUCHSTABEN         = "ABCDEFGHIJKL";
+		const KACHEL             = 170;               // Rastermaß einer Objekt-Kachel in Pixel
+		const TICK_MS            = 100;               // Spiellogik-Takt (entspricht dem alten go1, 0,1 s)
+		const MAX_NACHHOL_TICKS  = 36000;             // höchstens 1 h nachholen (Tab lange im Hintergrund / Standby)
+		const HALBIERUNG_BEI     = [10, 20, 40, 60, 80, 100, 120];
+		const PRESTIGE_ANZAHL_L  = 40;                // Original: objekteZahl[11] > 39
+		const PRESTIGE_FAKTOR    = 1.1;
+		const START_WELT         = 2.2;
+
+		// Startwerte je Objekt.
+		// arbeitsDauer in Takten à 0,1 s (25 -> 2,5 s)
+		//                  preis              steigerung  automatikPreis     verdienst    arbeitsDauer
+		const START_WERTE = [
+			/* A */ [               4.0,  1.07,             100,           1,   25 ],
+			/* B */ [              60.0,  1.15,            4000,          30,   50 ],
+			/* C */ [            1000.0,  1.12,           22000,         260,  100 ],
+			/* D */ [            8600.0,  1.135,         200000,        1080,  180 ],
+			/* E */ [           80000.0,  1.145,         550000,       25000,  280 ],
+			/* F */ [         1000000.0,  1.13,        10000000,       75000,  300 ],
+			/* G */ [         2840000.0,  1.10,        60000000,      380000,  400 ],
+			/* H */ [         4000000.0,  1.11,       300000000,      950000,  500 ],
+			/* I */ [         8000000.0,  1.18,      1000000000,     2000000,  600 ],
+			/* J */ [      1000000000.0,  1.04,     60000000000,     4000000,  700 ],
+			/* K */ [      6000000000.0,  1.08,    200000000000,     9000000,  800 ],
+			/* L */ [     50000000000.0,  1.03,   1000000000000,  2000000000,  900 ]
+		];
+
+		// Boni: [faktor, preis]
+		const BONI = [
+			/* A */ [  15,       300000 ],
+			/* B */ [  10,      1000000 ],
+			/* C */ [  40,      6000000 ],
+			/* D */ [  10,     20000000 ],
+			/* E */ [  30,    200000000 ],
+			/* F */ [  50,   1000000000 ],
+			/* G */ [  70,   4000000000 ],
+			/* H */ [  30,  20000000000 ],
+			/* I */ [  50,  80000000000 ],
+			/* J */ [  30, 200000000000 ],
+			/* K */ [ 100, 800000000000 ]
+		];
+
+		// Suffixe für große Zahlen, Index = Tausender-Exponent
+		const SUFFIXE = ["", "K", "M", "B", "T", "q", "Q", "s", "S", "Oc", "N", "D"];
+
+		//======================================================================================
+		// Canvas
+		//======================================================================================
+
+		const canvas  = document.getElementById("myCanvas");
+		const context = canvas.getContext("2d");
+
+		//======================================================================================
+		// Spielzustand
+		//======================================================================================
+
+		let guthaben    = 0;
+		let umsatz      = 0;          // Gesamtumsatz über alle Prestige-Runden
+		let clicks      = 0;
+		let globaFaktor = 1.0;        // Idle-Strafe (1.0 / 0.8 / 0.6 / 0.1)
+		let welt        = START_WELT; // Prestige-Multiplikator
+
+		let simZeit     = 0;          // simulierte Spielzeit in ms (läuft in TICK_MS-Schritten)
+		let letzterKlick = 0;         // simZeit des letzten Klicks (für die Idle-Strafe)
+
+		// pro Objekt
+		const objektAktiv          = [];
+		const aktuellerPreis       = [];
+		const preisSteigerung      = [];
+		const automatik            = [];
+		const automatikPreis       = [];
+		const automatikObjekteShow = [];   // ab dieser Stückzahl wird der Auto-Button angezeigt
+		const objekteZahl          = [];
+		const verdienst            = [];
+		const arbeitsDauer         = [];   // in 0,1-s-Takten, kann durch Halbierung gebrochen werden
+		const aktuelleArbeitsDauer = [];   // Restdauer der laufenden Runde, 0 = steht
+
+		// pro Bonus
+		const b_faktor  = BONI.map(b => b[0]);
+		const b_preis   = BONI.map(b => b[1]);
+		const b_gekauft = [];
+
+		// Setzt alle Objekte und Boni auf die Startwerte.
+		// Wird beim Start UND beim Prestige-Reset benutzt (im Original war das doppelt ausprogrammiert).
+		function initObjekte()
+		{
+			for (let i = 0; i < ANZAHL_OBJEKTE; i++)
+			{
+				const w = START_WERTE[i];
+				aktuellerPreis[i]       = w[0];
+				preisSteigerung[i]      = w[1];
+				automatikPreis[i]       = w[2];
+				verdienst[i]            = w[3];
+				arbeitsDauer[i]         = w[4];
+
+				objektAktiv[i]          = 0;
+				automatik[i]            = 0;
+				automatikObjekteShow[i] = 10;
+				objekteZahl[i]          = 1;      // jedes Objekt startet mit einem Stück
+				aktuelleArbeitsDauer[i] = 0;
+			}
+			objektAktiv[0] = 1;
+
+			for (let i = 0; i < ANZAHL_BONI; i++)
+				b_gekauft[i] = 0;
 		}
 
+		//======================================================================================
+		// Hilfsfunktionen: Zahlenformat
+		//======================================================================================
+
+		// Intl-Formatter cachen (Erzeugen ist teuer, wird ~60x pro Sekunde mehrfach gebraucht)
+		const formatCache = {};
+
+		// Zahl mit deutschem Format und fester Nachkommastellenzahl: 1234.5 -> "1.234,500"
+		// (ersetzt die alte, selbstgebaute Variante, die bei Zahlen >= 1e21 an der
+		//  Exponentialschreibweise "1e+21" scheiterte)
+		function toPoint1(number, nachkomma)
+		{
+			if (!formatCache[nachkomma])
+				formatCache[nachkomma] = new Intl.NumberFormat("de-DE",
+					{ minimumFractionDigits: nachkomma, maximumFractionDigits: nachkomma });
+			return formatCache[nachkomma].format(number);
+		}
+
+		// Ganzzahl mit Tausenderpunkt (Original hängte noch ein Leerzeichen an)
 		function toPoint(number)
 		{
-        	var laenge=0;		// laenge der Nachkommastellen
-            var sep=" ";		// Normalerweise Komma
-            var th_sep=".";		// Tausenderseparator
-
- 			number = Math.round( number * Math.pow(10, laenge) ) / Math.pow(10, laenge);
-  			str_number = number+"";
-			arr_int = str_number.split(".");
-			
-			if(!arr_int[0]) 
-				arr_int[0] = "0";
-			
-			if(!arr_int[1]) 
-				arr_int[1] = "";
-			
-			if(arr_int[1].length < laenge)
-			{
-    			nachkomma = arr_int[1];
-    			for(i=arr_int[1].length+1; i <= laenge; i++)
-					nachkomma += "0";  
-    			
-				arr_int[1] = nachkomma;
-  			}
-  			if(th_sep != "" && arr_int[0].length > 3)
-			{
-    			Begriff = arr_int[0];
-    			arr_int[0] = "";
-    			
-				for(j = 3; j < Begriff.length ; j+=3)
-				{
-      				Extrakt = Begriff.slice(Begriff.length - j, Begriff.length - j + 3);
-      				arr_int[0] = th_sep + Extrakt +  arr_int[0] + "";
-    			}
-    			
-				str_first = Begriff.substr(0, (Begriff.length % 3 == 0)?3:(Begriff.length % 3));
-    			arr_int[0] = str_first + arr_int[0];
-  			}
-  			return arr_int[0]+sep+arr_int[1];
+			return toPoint1(number, 0);
 		}
-		
-		function toPoint1(number, laenge)	// laenge ist laenge der Nachkommastellen
+
+		// Geldbetrag kurz: < 1000 mit 3 Nachkommastellen, sonst Mantisse + Suffix (1,234M).
+		// Die Mantisse wird wie im Original abgeschnitten, nicht gerundet.
+		// Das Original (toPoint2) arbeitete über die Stringlänge und lieferte z.B. bei
+		// 123.456.789.012.345 "123,456Tq" und bei 10^17 "Q" statt "q".
+		function formatGeld(n)
 		{
-            var sep=",";		// Normalerweise Komma
-            var th_sep=".";		// Tausenderseparator
+			if (!isFinite(n)) return "unendlich";
+			if (n < 1000)     return toPoint1(n, 3);
 
- 			number = Math.round( number * Math.pow(10, laenge) ) / Math.pow(10, laenge);
-  			str_number = number+"";
-			arr_int = str_number.split(".");
-			
-			if(!arr_int[0]) 
-				arr_int[0] = "0";
-			
-			if(!arr_int[1]) 
-				arr_int[1] = "";
-			
-			if(arr_int[1].length < laenge)
-			{
-    			nachkomma = arr_int[1];
-    			for(i=arr_int[1].length+1; i <= laenge; i++)
-					nachkomma += "0";  
-    			
-				arr_int[1] = nachkomma;
-  			}
-  			if(th_sep != "" && arr_int[0].length > 3)
-			{
-    			Begriff = arr_int[0];
-    			arr_int[0] = "";
-    			
-				for(j = 3; j < Begriff.length ; j+=3)
-				{
-      				Extrakt = Begriff.slice(Begriff.length - j, Begriff.length - j + 3);
-      				arr_int[0] = th_sep + Extrakt +  arr_int[0] + "";
-    			}
-    			
-				str_first = Begriff.substr(0, (Begriff.length % 3 == 0)?3:(Begriff.length % 3));
-    			arr_int[0] = str_first + arr_int[0];
-  			}
-  			return arr_int[0]+sep+arr_int[1];
+			let e = Math.floor(Math.log10(n) / 3);
+			let m = n / Math.pow(1000, e);
+			if (m >= 1000) { m /= 1000; e++; }   // Rundungsfehler von log10 abfangen
+			if (m < 1)     { m *= 1000; e--; }
+
+			m = Math.floor(m * 1000 + 1e-6) / 1000;   // auf 3 Nachkommastellen abschneiden
+
+			const suffix = (e < SUFFIXE.length) ? SUFFIXE[e] : "e" + (3 * e);
+			return toPoint1(m, 3) + suffix;
 		}
 
-		function toPoint2(number)
-		{
-			var laenge=0;
-			var erg="----";
+		//======================================================================================
+		// Hilfsfunktionen: Zeichnen
+		//======================================================================================
 
-			laenge=number.length;
-
-			if (laenge>8)
-			{
-				if (laenge%4==1)
-					erg=number[0]+","+number[2]+number[3]+number[4];
-				if (laenge%4==2)
-					erg=number[0]+number[1]+","+number[3]+number[4]+number[5];
-				if (laenge%4==3)
-					erg=number[0]+number[1]+number[2]+","+number[4]+number[5]+number[6];
-				
-				if (toInteger((laenge-10)/4)==0) erg+="K";	// Thousand
-				if (toInteger((laenge-10)/4)==1) erg+="M";	// Million
-				if (toInteger((laenge-10)/4)==2) erg+="B";	// Billion
-				if (toInteger((laenge-10)/4)==3) erg+="T"; 	// Trillion
-				if (toInteger((laenge-9)/4)==4) erg+="q";	// Quadrillion
-				if (toInteger((laenge-9)/4)==5) erg+="Q";	// Quintillion
-				if (toInteger((laenge-9)/4)==6) erg+="s";	// Sextillion
-				if (toInteger((laenge-9)/4)==7) erg+="S";	// Septillion
-				if (toInteger((laenge-9)/4)==8) erg+="Oc";	// Octillion
-				if (toInteger((laenge-9)/4)==9) erg+="N";	// Nonillion
-				if (toInteger((laenge-9)/4)==10) erg+="D";	// Decillion
-			}
-			else
-				return number;
-
-			return erg;
-		}
-	
+		// "#rrggbb" – Werte werden auf 0..255 begrenzt und zweistellig ausgegeben
 		function rgbToString(r, g, b)
 		{
-			if (r<16)	ergr="0"+(r).toString(16);
-			else		ergr=(r).toString(16);
-			if (g<16)	ergg="0"+(g).toString(16);
-			else		ergg=(g).toString(16);
-			if (b<16)	ergb="0"+(b).toString(16);
-			else		ergb=(b).toString(16);
-			return ergr+ergg+ergb;
+			const hex = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+			return "#" + hex(r) + hex(g) + hex(b);
 		}
 
 		function line(x1, y1, x2, y2, r, g, b)
 		{
-//			context.strokeStyle="#"+(r).toString(16)+(g).toString(16)+(b).toString(16);
-			context.strokeStyle="#"+rgbToString(r,g,b);
+			context.strokeStyle = rgbToString(r, g, b);
 			context.beginPath();
-			context.moveTo(x1,y1);
-			context.lineTo(x2,y2);
+			context.moveTo(x1, y1);
+			context.lineTo(x2, y2);
 			context.stroke();
 		}
 
+		// gefülltes Rechteck
 		function bar(x, y, breite, hoehe, r, g, b)
 		{
-			context.fillStyle="#"+rgbToString(r,g,b);
-			context.fillRect(x,y,breite,hoehe);
+			context.fillStyle = rgbToString(r, g, b);
+			context.fillRect(x, y, breite, hoehe);
 		}
-		
+
+		// Rechteck mit 3D-Rand: hochtief = 0 -> erhaben (oben/links hell), 1 -> vertieft
 		function bar1(x, y, breite, hoehe, hochtief, r, g, b)
 		{
-			context.fillStyle="#"+rgbToString(r,g,b);
-			context.fillRect(x,y,breite,hoehe);
+			bar(x, y, breite, hoehe, r, g, b);
 
-			var color1=255;
-			var color2=0;
-			if (hochtief==1)
-			{
-				color2=255;
-				color1=0;
-			}
- 	
-			line(x,y,x+breite,y,color1,color1,color1);	// Oben
-			line(x,y,x,y+hoehe,color1,color1,color1);	// Links
-			line(x,y+hoehe,x+breite,y+hoehe,color2,color2,color2);	// Unten
-			line(x+breite,y,x+breite,y+hoehe,color2,color2,color2);	// Rechts
+			const hell   = (hochtief == 1) ? 0 : 255;
+			const dunkel = (hochtief == 1) ? 255 : 0;
+
+			line(x,          y,         x + breite, y,          hell,   hell,   hell);    // oben
+			line(x,          y,         x,          y + hoehe,  hell,   hell,   hell);    // links
+			line(x,          y + hoehe, x + breite, y + hoehe,  dunkel, dunkel, dunkel);  // unten
+			line(x + breite, y,         x + breite, y + hoehe,  dunkel, dunkel, dunkel);  // rechts
 		}
-			
-		
+
+		// gefüllter Kreis.
+		// Original: mehrere arc() in EINEM Pfad ohne moveTo -> Verbindungslinien statt Kreis,
+		// außerdem Farbe ohne führende Nullen (z.B. "#564c8" = ungültig).
 		function circle(x, y, radius, r, g, b)
 		{
-			context.strokeStyle="#"+(r).toString(16)+(g).toString(16)+(b).toString(16);
+			context.fillStyle = rgbToString(r, g, b);
 			context.beginPath();
-			for(i=1;i<=radius;i++)
-				context.arc(x,y,i,0,2*Math.PI);
-			context.stroke();
+			context.arc(x, y, radius, 0, 2 * Math.PI);
+			context.fill();
 		}
-			
-		function graTextOut(x, y, size, text, r, g, b) 
+
+		function graTextOut(x, y, size, text, r, g, b)
 		{
-			context.fillStyle="#"+rgbToString(r,g,b);
-	//		context.font=(size).toString(10)+"px Times New Roman";
-			context.font=(size).toString(10)+"px Calibri";
+			context.fillStyle = rgbToString(r, g, b);
+			// Calibri gibt es unter Linux meist nicht -> Carlito (metrisch kompatibel) bzw. sans-serif
+			context.font = size + "px Calibri, Carlito, sans-serif";
 			context.fillText(text, x, y);
 		}
 
-
-
-		//###################################
-		// Das Vorgehen:
-		// Bei einem Klick auf GO wird die 'arbeitsDauer' runter gezaehlt
-		// ist die 'arbeitsDauer' auf null wird der 'verdienst' * 'objekteZahl'  zum 'guthaben' addiert
-		//
-			// Bei einem Klick auf KAUFEN wird bei genuegend 'guthaben' die 'objekteZahl' um eins erhoeht
-		// Der 'aktuellerPreis' wird mit der 'preisSteigerung' multipliziert
-		//
-		// die 'arbeitsDauer' wird bei einer 'objekteZahl' von 10 25 50 100 250 500 jeweils halbiert
-
-
-
-		//###################################
-				// die Variablen
-
-//		var guthaben=10000000000;	Reicht bis F
-//		var guthaben=30000000000000;
-		var guthaben=0;
-		var umsatz=0;
-		var gozaehler=0;
-		var lastMausGoZaehler=0;
-		var	globaFaktor=1.0;
-
-		var welt=2.2;
-		var	clicks=0;
-		
-		// pro Objekt
-
-		var objektAktiv=[];
-		var aktuellerPreis=[];
-		var preisSteigerung=[];
-
-		var automatik=[];
-		var automatikPreis=[];
-		var automatikObjekteShow=[];
-		
-		var objekteZahl=[];
-		var objektMultiplikator=[];
-		var verdienst=[];
-
-		var arbeitsDauer=[];	// in 0.1 Sekunden Schritten
-		var arbeitsDauerDelta=[];
-		var aktuelleArbeitsDauer=[];
-
-		for(var i=0;i<15;i++)
+		// Einkaufswagen-Symbol im Kaufen-Button (ox/oy = Kachelversatz)
+		function einkaufswagen(ox, oy, c)
 		{
-			objektAktiv[i]=0;
+			line(20 + ox, 140 + oy, 45 + ox, 140 + oy, c, c, c);   // Korb: drei waagrechte Linien
+			line(22 + ox, 144 + oy, 43 + ox, 144 + oy, c, c, c);
+			line(24 + ox, 148 + oy, 41 + ox, 148 + oy, c, c, c);
 
-			automatik[i]=0;
-			automatikObjekteShow[i]=10
-		
-			objekteZahl[i]=1;
+			for (let k = 26; k <= 38; k += 4)                     // senkrechte Streben
+				line(k + ox, 140 + oy, k + ox, 148 + oy, c, c, c);
 
-			aktuelleArbeitsDauer[i]=0;
+			line(24 + ox, 148 + oy, 18 + ox, 136 + oy, c, c, c);   // Griff
+			line(18 + ox, 136 + oy, 15 + ox, 136 + oy, c, c, c);
+			line(45 + ox, 140 + oy, 41 + ox, 148 + oy, c, c, c);   // rechte Seite
+
+			circle(27 + ox, 153 + oy, 2, c, c, c);                  // Räder
+			circle(38 + ox, 153 + oy, 2, c, c, c);
 		}
 
+		//======================================================================================
+		// Layout / Trefferprüfung
+		//======================================================================================
 
-		aktuellerPreis[0]=4.0;			//A
-		preisSteigerung[0]=1.07;
-		automatikPreis[0]=100;
-		verdienst[0]=1;
-		arbeitsDauer[0]=25;	// eigendlich 64
+		// Pixelversatz der Kachel i im 3er-Raster (ersetzt die if-Kette für dy)
+		function kachelX(i) { return (i % 3) * KACHEL; }
+		function kachelY(i) { return Math.floor(i / 3) * KACHEL; }
 
-		aktuellerPreis[1]=60.0;			//B
-		preisSteigerung[1]=1.15;
-		automatikPreis[1]=4000;
-		verdienst[1]=30;
-		arbeitsDauer[1]=50;	// eigendlich 64
-
-		aktuellerPreis[2]=1000.0;		//C
-		preisSteigerung[2]=1.12;
-		automatikPreis[2]=22000;
-		verdienst[2]=260;
-		arbeitsDauer[2]=100;	// eigendlich 64
-
-		aktuellerPreis[3]=8600.0;		//D
-		preisSteigerung[3]=1.135;
-		automatikPreis[3]=200000;
-		verdienst[3]=1080;
-		arbeitsDauer[3]=180;	// eigendlich 64
-
-		aktuellerPreis[4]=80000.0;		// 12s
-		preisSteigerung[4]=1.145;		//E
-		automatikPreis[4]=550000;
-		verdienst[4]=25000;
-		arbeitsDauer[4]=280;	// eigendlich 64
-
-		aktuellerPreis[5]=1000000.0;		// 20s
-		preisSteigerung[5]=1.13;		//F
-		automatikPreis[5]=10000000;
-		verdienst[5]=75000;
-		arbeitsDauer[5]=300;	// eigendlich 64
-
-		aktuellerPreis[6]=2840000.0;		// 30s
-		preisSteigerung[6]=1.10;		//G
-		automatikPreis[6]=60000000;
-		verdienst[6]=380000;
-		arbeitsDauer[6]=400;	// eigendlich 64
-
-		aktuellerPreis[7]=4000000.0;		// 40s
-		preisSteigerung[7]=1.11;		//H
-		automatikPreis[7]=300000000;
-		verdienst[7]=950000;
-		arbeitsDauer[7]=500;
-
-		aktuellerPreis[8]=8000000.0;		//I
-		preisSteigerung[8]=1.18;
-		automatikPreis[8]=1000000000;
-		verdienst[8]=2000000;
-		arbeitsDauer[8]=600;
-		
-		aktuellerPreis[9]=1000000000.0;		//J
-		preisSteigerung[9]=1.04;
-		automatikPreis[9]=60000000000;
-		verdienst[9]=4000000;
-		arbeitsDauer[9]=700;
-
-		aktuellerPreis[10]=6000000000.0;		//K
-		preisSteigerung[10]=1.08;
-			automatikPreis[10]=200000000000;
-		verdienst[10]=9000000;
-		arbeitsDauer[10]=800;
-
-		aktuellerPreis[11]=50000000000.0;		//L
-		preisSteigerung[11]=1.03;
-		automatikPreis[11]=1000000000000;
-		verdienst[11]=2000000000;
-		arbeitsDauer[11]=900;
-
-
-
-		var b_buchstabe=[];
-		var b_faktor=[];
-		var b_preis=[];
-		var b_gekauft=[];
-
-		for(var i=0;i<11;i++)
+		function imRechteck(x, y, x1, y1, x2, y2)
 		{
-			b_buchstabe[i]=i;
-			b_faktor[i]=1.0;
-			b_preis[i]=1000000000000;
-			b_gekauft[i]=0;
+			return x > x1 && x < x2 && y > y1 && y < y2;
 		}
 
-		b_faktor[0]=15;				//A
-		b_preis[0]=300000;
+		//======================================================================================
+		// Spiellogik
+		//======================================================================================
 
-		b_faktor[1]=10;				//B
-		b_preis[1]=1000000;
-
-		b_faktor[2]=40;				//C
-		b_preis[2]=6000000;
-
-		b_faktor[3]=10;				//D
-		b_preis[3]=20000000;
-
-		b_faktor[4]=30;				//E
-		b_preis[4]=200000000;
-
-		b_faktor[5]=50;				//F
-		b_preis[5]=1000000000;
-
-		b_faktor[6]=70;				//G
-		b_preis[6]=4000000000;
-
-		b_faktor[7]=30;				//H
-		b_preis[7]=20000000000;	
-
-		b_faktor[8]=50;				//I
-		b_preis[8]=80000000000;
-
-		b_faktor[9]=30;				//J
-		b_preis[9]=200000000000;
-
-		b_faktor[10]=100;			//K
-		b_preis[10]=800000000000;
-
-
-
-
-
-
-
-		objektAktiv[0]=1;
-
-		function Mausklick (evt) 
+		// Tatsächliche Dauer einer Runde in Takten.
+		// go1 zählt pro Takt um 1 herunter, deshalb dauert eine Runde ceil(arbeitsDauer) Takte,
+		// mindestens aber 1 Takt. Das Original rechnete die $/s mit arbeitsDauer selbst und
+		// zeigte so z.B. bei A mit 120 Stück (arbeitsDauer 0,195) das 5-Fache des echten Werts.
+		function effektiveTicks(i)
 		{
-			x=evt.offsetX;
-			y=evt.offsetY;
+			return Math.max(1, Math.ceil(arbeitsDauer[i]));
+		}
+
+		// Ertrag pro Sekunde eines Objekts (nur sinnvoll bei Automatik)
+		function dollarProSekunde(i)
+		{
+			return verdienst[i] * objekteZahl[i] * globaFaktor * welt / (effektiveTicks(i) / 10);
+		}
+
+		function prestige()
+		{
+			welt *= PRESTIGE_FAKTOR;
+			guthaben = 0;
+			initObjekte();     // umsatz und clicks bleiben bewusst erhalten
+		}
+
+		// Ein Spieltakt = 0,1 s (früher go1 + die Logikteile, die in go() beim Zeichnen steckten)
+		function spielTick()
+		{
+			simZeit += TICK_MS;
+
+			// Idle-Strafe (früher über gozaehler, der an die Zeichenrate gekoppelt war)
+			const idle = simZeit - letzterKlick;
+			if      (idle > 30000) globaFaktor = 0.1;
+			else if (idle > 20000) globaFaktor = 0.6;
+			else if (idle > 10000) globaFaktor = 0.8;
+			else                   globaFaktor = 1.0;
+
+			for (let i = 0; i < ANZAHL_OBJEKTE; i++)
+			{
+				if (objektAktiv[i] > 0 && aktuelleArbeitsDauer[i] > 0)
+				{
+					aktuelleArbeitsDauer[i]--;
+					if (aktuelleArbeitsDauer[i] <= 0)
+					{
+						const ertrag = verdienst[i] * objekteZahl[i] * globaFaktor * welt;
+						aktuelleArbeitsDauer[i] = 0;
+						guthaben += ertrag;
+						umsatz   += ertrag;
+
+						if (automatik[i] == 1)
+							aktuelleArbeitsDauer[i] = arbeitsDauer[i];
+					}
+				}
+			}
+
+			// Freischalten des nächsten Objekts (war im Zeichenteil)
+			for (let i = 0; i < ANZAHL_OBJEKTE - 1; i++)
+				if (objekteZahl[i] >= 10 + i * 4)
+					objektAktiv[i + 1] = 1;
+
+			// Prestige (war im Zeichenteil)
+			if (objekteZahl[ANZAHL_OBJEKTE - 1] >= PRESTIGE_ANZAHL_L)
+				prestige();
+		}
+
+		//======================================================================================
+		// Maus
+		//======================================================================================
+
+		// Nur Klicks auf dem Canvas zählen. Original: document.onclick + offsetX -> Klicks
+		// außerhalb des Canvas lieferten Koordinaten relativ zu einem anderen Element.
+		canvas.addEventListener("click", Mausklick);
+
+		function Mausklick(evt)
+		{
+			// Bildschirm- in Canvas-Koordinaten umrechnen (stimmt auch, wenn das Canvas per CSS skaliert ist)
+			const rect = canvas.getBoundingClientRect();
+			const x = (evt.clientX - rect.left) * canvas.width  / rect.width;
+			const y = (evt.clientY - rect.top)  * canvas.height / rect.height;
 
 			clicks++;
-			lastMausGoZaehler=gozaehler;
-			globaFaktor=1.0;
+			letzterKlick = simZeit;
+			globaFaktor  = 1.0;
 
-			for(var i=0;i<12;i++)
+			for (let i = 0; i < ANZAHL_OBJEKTE; i++)
 			{
-				var dx=i%3;
-				var dy=1;
+				if (objektAktiv[i] <= 0) continue;
 
-				if (i<3) dy=0;
-			 	if ((i>2) && (i<6)) dy=1;
-			 	if ((i>5) && (i<9)) dy=2;
-			 	if (i>8) dy=3;
+				const ox = kachelX(i);
+				const oy = kachelY(i);
 
-				if (objektAktiv[i]>0)
+				// GO-Button (gezeichnet 40 px breit, Trefferfläche wie im Original bis x = 70)
+				if (imRechteck(x, y, 10 + ox, 60 + oy, 70 + ox, 90 + oy))
 				{
-					if ((x>10+dx*170)&&(x<70+dx*170)&&(y>60+dy*170)&&(y<90+dy*170))	// GO Button
+					if (aktuelleArbeitsDauer[i] == 0)
+						aktuelleArbeitsDauer[i] = arbeitsDauer[i];
+				}
+
+				// KAUFEN-Button
+				if (imRechteck(x, y, 10 + ox, 130 + oy, 160 + ox, 160 + oy))
+				{
+					if (guthaben >= aktuellerPreis[i])
 					{
-						if (aktuelleArbeitsDauer[i]==0)
-						 	aktuelleArbeitsDauer[i]=arbeitsDauer[i];
-					}
-			
-					if ((x>10+dx*170)&&(x<160+dx*170)&&(y>130+dy*170)&&(y<160+dy*170))	// BUY Button
-					{
-						if (guthaben>=aktuellerPreis[i])
+						guthaben -= aktuellerPreis[i];
+						objekteZahl[i]++;
+						aktuellerPreis[i] *= preisSteigerung[i];
+
+						if (HALBIERUNG_BEI.includes(objekteZahl[i]))
 						{
-							guthaben-=aktuellerPreis[i];
-							objekteZahl[i]++;
-							aktuellerPreis[i]*=preisSteigerung[i];
-							if ((objekteZahl[i]==10) || (objekteZahl[i]==20) || (objekteZahl[i]==40) || (objekteZahl[i]==60) || (objekteZahl[i]==80) || (objekteZahl[i]==100) || (objekteZahl[i]==120))
-								arbeitsDauer[i]/=2;
+							arbeitsDauer[i] /= 2;
+							// laufende Runde anteilig mit verkürzen. Original: wurde beim Zeichnen
+							// über einen negativen Fortschrittsbalken "repariert".
+							aktuelleArbeitsDauer[i] /= 2;
 						}
 					}
-			
-					if ((x>10+dx*170)&&(x<160+dx*170)&&(y>180+dy*170)&&(y<210+dy*170))	// automatik Button
+				}
+
+				// AUTO-Button – nur wenn er auch angezeigt wird.
+				// Original: war schon vor 10 Stück unsichtbar an dieser Stelle klickbar.
+				if (objekteZahl[i] >= automatikObjekteShow[i] && automatik[i] == 0 &&
+					imRechteck(x, y, 10 + ox, 180 + oy, 160 + ox, 210 + oy))
+				{
+					if (guthaben >= automatikPreis[i])
 					{
-						if (automatik[i]==0)
-						{
-							if (guthaben>=automatikPreis[i])
-							{
-								automatik[i]=1;
-								guthaben-=automatikPreis[i];
-								if (aktuelleArbeitsDauer[i]==0)
-						 			aktuelleArbeitsDauer[i]=arbeitsDauer[i];
-							}
-						}
+						automatik[i] = 1;
+						guthaben -= automatikPreis[i];
+						if (aktuelleArbeitsDauer[i] == 0)
+							aktuelleArbeitsDauer[i] = arbeitsDauer[i];
 					}
 				}
 			}
 
-			//####################################
-			// Die Bonesen
-			for(var i=0;i<11;i++)
+			// Boni – nur für freigeschaltete Objekte (so zeigt es die Anzeige auch an;
+			// im Original konnte man Boni für noch gesperrte Objekte kaufen)
+			for (let i = 0; i < ANZAHL_BONI; i++)
 			{
-				if ((x>540)&&(x<730)&&(y>63+i*58)&&(y<113+i*58))
+				if (imRechteck(x, y, 540, 63 + i * 58, 730, 113 + i * 58))
 				{
-					if ((guthaben>=b_preis[i])&&(b_gekauft[i]==0))
+					if (guthaben >= b_preis[i] && b_gekauft[i] == 0 && objektAktiv[i] == 1)
 					{
-						verdienst[i]*=b_faktor[i];
-						guthaben-=b_preis[i];
-						b_gekauft[i]=1;
-					}
-				}
-			}
-		}
-
-
-
-//######################################################################################################## go1
-//######################################################################################################## go1
-//######################################################################################################## go1
-//######################################################################################################## go1
-		function go1()	// 0.1 Sekunde
-		{
-			for(var i=0;i<12;i++)
-			{
-				if (objektAktiv[i]>0)
-				{
-					if (aktuelleArbeitsDauer[i]>0)
-					{
-						aktuelleArbeitsDauer[i]--;
-						if (aktuelleArbeitsDauer[i]<=0)
-						{
-							aktuelleArbeitsDauer[i]=0;
-							guthaben+=verdienst[i]*objekteZahl[i]*globaFaktor*welt;
-							umsatz+=verdienst[i]*objekteZahl[i]*globaFaktor*welt;
-
-							if (automatik[i]==1)
-								aktuelleArbeitsDauer[i]=arbeitsDauer[i];
-						}
+						verdienst[i] *= b_faktor[i];
+						guthaben -= b_preis[i];
+						b_gekauft[i] = 1;
 					}
 				}
 			}
 		}
 
+		//======================================================================================
+		// Zeichnen
+		//======================================================================================
 
-
-//######################################################################################################## go
-//######################################################################################################## go
-//######################################################################################################## go
-//######################################################################################################## go
-		function go()
+		function zeichneKachel(i, summeDps, animPhase)
 		{
-			gozaehler++;
+			const ox = kachelX(i);
+			const oy = kachelY(i);
 
-			if (gozaehler-lastMausGoZaehler>1000) globaFaktor=0.8;
-			if (gozaehler-lastMausGoZaehler>2000) globaFaktor=0.6;
-			if (gozaehler-lastMausGoZaehler>3000) globaFaktor=0.1;
+			bar(5 + ox, 55 + oy, 160, 160, 160, 160, 130);
+			graTextOut(145 + ox, 75 + oy, 20, BUCHSTABEN[i], 0, 0, 100);
 
-
-			bar(0,0,750,740,200,200,170);
-		
-			
-
-			graTextOut(300,40,12,"stupid sensless crazy game (please DO NOT play)",0,0,0);
-			graTextOut(660,12,12,"V 0.8191220",0,0,0);
-//			graTextOut(660,12,12,gozaehler,0,0,0);
-
-			var text= "$" + toPoint2(toPoint1(guthaben,3));
-			graTextOut(10,40,30,text,0,0,0);
-			
-			var text= "Umsatz: $" + toPoint2(toPoint1(umsatz,3));
-			graTextOut(300,12,12,text,0,0,0);
-
-			var text= "Klicks: " + clicks;
-			graTextOut(450,12,12,text,0,0,0);
-
-			bar(10,45,730,3,0,0,0);
-
-			for(var i=0;i<12;i++)
+			//---------------------------------------
+			// GO-Button (grau, wenn Automatik läuft)
+			if (automatik[i] == 0)
 			{
-				var dx=i%3;
-			 	var dy=0;
-			 	
-				if (i<3) dy=0;
-			 	if ((i>2) && (i<6)) dy=1;
-			 	if ((i>5) && (i<9)) dy=2;
-			 	if (i>8) dy=3;
+				bar1(10 + ox, 60 + oy, 40, 30, 0, 155, 180, 155);
+				graTextOut(19 + ox, 95 + oy, 40, "*", 0, 0, 0);
+			}
+			else
+			{
+				bar1(10 + ox, 60 + oy, 40, 30, 0, 155, 155, 155);
+				graTextOut(19 + ox, 95 + oy, 40, "*", 120, 120, 120);
+			}
 
-			 	
-				if (objektAktiv[i]>0)
+			// Stückzahl x Ertrag pro Stück
+			const text = toPoint(objekteZahl[i]) + "x" + formatGeld(verdienst[i] * globaFaktor * welt);
+			graTextOut(55 + ox, 90 + oy, 14, text, 0, 0, 0);
+
+			//---------------------------------------
+			// Fortschrittsbalken
+			bar1(10 + ox, 95 + oy, 122, 30, 1, 100, 100, 100);
+
+			if (arbeitsDauer[i] > 1)
+			{
+				if (aktuelleArbeitsDauer[i] > 0)
 				{
-		
-					bar(5+dx*170,55+dy*170,160,160,160,160,130);
+					// h = Balkenlänge 0..120 px
+					let h = (arbeitsDauer[i] - aktuelleArbeitsDauer[i]) * 120 / arbeitsDauer[i];
+					h = Math.max(0, Math.min(120, h));
+					bar(12 + ox, 97 + oy, h, 26, 100, 200, 100);
 
-					if (i== 0) graTextOut(145+dx*170,75+dy*170,20,"A",0,0,100);
-					if (i== 1) graTextOut(145+dx*170,75+dy*170,20,"B",0,0,100);
-					if (i== 2) graTextOut(145+dx*170,75+dy*170,20,"C",0,0,100);
-					if (i== 3) graTextOut(145+dx*170,75+dy*170,20,"D",0,0,100);
-					if (i== 4) graTextOut(145+dx*170,75+dy*170,20,"E",0,0,100);
-					if (i== 5) graTextOut(145+dx*170,75+dy*170,20,"F",0,0,100);
-					if (i== 6) graTextOut(145+dx*170,75+dy*170,20,"G",0,0,100);
-					if (i== 7) graTextOut(145+dx*170,75+dy*170,20,"H",0,0,100);
-					if (i== 8) graTextOut(145+dx*170,75+dy*170,20,"I",0,0,100);
-					if (i== 9) graTextOut(145+dx*170,75+dy*170,20,"J",0,0,100);
-					if (i==10) graTextOut(145+dx*170,75+dy*170,20,"K",0,0,100);
-					if (i==11) graTextOut(145+dx*170,75+dy*170,20,"L",0,0,100);
-
-
-					//#######################################
-					// der GO Button
-					if (automatik[i]==0)
+					graTextOut(20 + ox, 115 + oy, 16, toPoint(h * 5 / 6), 0, 0, 0);   // h*5/6 = Prozent
+				}
+			}
+			else
+			{
+				// Runde dauert nur noch 1 Takt -> statt Balken eine Lauf-Animation (Periode 0,6 s)
+				for (let k = 0; k < 20; k++)
+				{
+					const sx = 12 + k * 6 + ox;
+					const sy = 97 + oy;
+					if (animPhase < 20)
 					{
-						bar1(10+dx*170,60+dy*170,40,30,0,155,180,155);
-						graTextOut(19+dx*170,95+dy*170,40,"*",0,0,0);
+						bar(sx,     sy, 2, 25, 100, 150, 100);
+						bar(sx + 2, sy, 4, 25, 100, 100, 100);
 					}
-					else
+					else if (animPhase < 40)
 					{
-						bar1(10+dx*170,60+dy*170,40,30,0,155,155,155);
-						graTextOut(19+dx*170,95+dy*170,40,"*",120,120,120);
+						bar(sx,     sy, 2, 25, 100, 100, 100);
+						bar(sx + 2, sy, 2, 25, 100, 150, 100);
+						bar(sx + 4, sy, 2, 25, 100, 100, 100);
 					}
-
-					var text=toPoint(objekteZahl[i]) + "x" + toPoint2(toPoint1(verdienst[i]*globaFaktor*welt,3));
-					graTextOut(55+dx*170,90+dy*170,14,text,0,0,0);
-
-					//#######################################
-					// der Vortschrittsbalken
-					if (arbeitsDauer[i]>1)
+					else   // Original: "> 40" -> bei genau 40 wurde nichts gezeichnet (Flackern)
 					{
-						bar1(10+dx*170,95+dy*170,122,30,1,100,100,100);
-						if (aktuelleArbeitsDauer[i]>0)
-						{
-							var h=(arbeitsDauer[i]-aktuelleArbeitsDauer[i])*120/arbeitsDauer[i];
-							if (h<0)
-			 					aktuelleArbeitsDauer[i]/=2;
-							bar(12+dx*170,97+dy*170,h,26,100,200,100)
-
-							h=h*5/6;
-							graTextOut(20+dx*170,115+dy*170,16,toPoint(h),0,0,0);
-						}
-					}
-					else
-					{
-						bar1(10+dx*170, 95+dy*170,122,30,1,100,100,100);
-			 			for(var k=0;k<20;k++)
-			 			{
-							if ((gozaehler%60)<20)
-							{
-								bar(12+k*6+dx*170, 97+dy*170,2,25,100,150,100);
-								bar(14+k*6+dx*170, 97+dy*170,4,25,100,100,100);
-							}
-							if (((gozaehler%60)>=20)&&((gozaehler%60)<40))
-							{
-								bar(12+k*6+dx*170, 97+dy*170,2,25,100,100,100);
-								bar(14+k*6+dx*170, 97+dy*170,2,25,100,150,100);
-								bar(16+k*6+dx*170, 97+dy*170,2,25,100,100,100);
-							}
-							if ((gozaehler%60)>40)
-							{
-								bar(12+k*6+dx*170, 97+dy*170,4,25,100,100,100);
-								bar(16+k*6+dx*170, 97+dy*170,2,25,100,150,100);
-							}
-			 			}
-					}
-
-					bar1(136+dx*170,95+dy*170,25,30,1,100,100,100);
-					
-					for(var k=0;k<5;k++)
-						bar(138+dx*170, 98+k*5+dy*170, 20,4,130,130,130);
-
-					if (objekteZahl[i]>=10)		bar(138+dx*170, 118+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=20)		bar(138+dx*170, 113+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=40)		bar(138+dx*170, 108+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=60)		bar(138+dx*170, 103+dy*170, 20,4,50,50,250);
-					if (objekteZahl[i]>=80)		bar(138+dx*170,  98+dy*170, 20,4,50,50,250);
-
-
-					//#######################################
-					// Buy Button
-					if (guthaben>=aktuellerPreis[i])
-					{
-						bar1(10+dx*170,130+dy*170,150,30,0,155,180,155);
-
-						line(20+dx*170,140+dy*170,45+dx*170,140+dy*170,0,0,0);
-						line(22+dx*170,144+dy*170,43+dx*170,144+dy*170,0,0,0);
-						line(24+dx*170,148+dy*170,41+dx*170,148+dy*170,0,0,0);
-					
-						line(26+dx*170,140+dy*170,26+dx*170,148+dy*170,0,0,0);
-						line(30+dx*170,140+dy*170,30+dx*170,148+dy*170,0,0,0);
-						line(34+dx*170,140+dy*170,34+dx*170,148+dy*170,0,0,0);
-						line(38+dx*170,140+dy*170,38+dx*170,148+dy*170,0,0,0);
-					
-						line(24+dx*170,148+dy*170,18+dx*170,136+dy*170,0,0,0);
-						line(18+dx*170,136+dy*170,15+dx*170,136+dy*170,0,0,0);
-
-						line(45+dx*170,140+dy*170,41+dx*170,148+dy*170,0,0,0);
-
-						circle(27+dx*170,153+dy*170,2,0,0,0);
-						circle(38+dx*170,153+dy*170,2,0,0,0);
-					}
-					else
-					{	
-						bar1(10+dx*170,130+dy*170,150,30,0,155,155,155);
-						
-						line(20+dx*170,140+dy*170,45+dx*170,140+dy*170,105,105,105);
-						line(22+dx*170,144+dy*170,43+dx*170,144+dy*170,105,105,105);
-						line(24+dx*170,148+dy*170,41+dx*170,148+dy*170,105,105,105);
-					
-						line(26+dx*170,140+dy*170,26+dx*170,148+dy*170,105,105,105);
-						line(30+dx*170,140+dy*170,30+dx*170,148+dy*170,105,105,105);
-						line(34+dx*170,140+dy*170,34+dx*170,148+dy*170,105,105,105);
-						line(38+dx*170,140+dy*170,38+dx*170,148+dy*170,105,105,105);
-					
-						line(24+dx*170,148+dy*170,18+dx*170,136+dy*170,105,105,105);
-						line(18+dx*170,136+dy*170,15+dx*170,136+dy*170,105,105,105);
-
-						line(45+dx*170,140+dy*170,41+dx*170,148+dy*170,105,105,105);
-
-						circle(27+dx*170,153+dy*170,2,105,105,105);
-						circle(38+dx*170,153+dy*170,2,105,105,105);
-					}
-
-					var text="$" + toPoint2(toPoint1(aktuellerPreis[i],3));
-					graTextOut(65+dx*170,150+dy*170,16,text,0,0,0);
-					
-					
-					//#######################################
-					// Die Dollares per Sekundo Anzeige
-					if (automatik[i]>0)
-					{
-						var sum=0;
-						for(var d=0;d<12;d++)
-		 				{
-		 					if (automatik[d]>0)
-								sum+=verdienst[d]*objekteZahl[d]*globaFaktor*welt/(arbeitsDauer[d]/10);
-						}
-
-						var dps1=verdienst[i]*objekteZahl[i]*globaFaktor*welt/(arbeitsDauer[i]/10);
-						var dps="$" +toPoint2(toPoint1(dps1,3))+ "/s";
-						graTextOut(15+dx*170,175+dy*170,14,dps,0,0,0);
-						
-						if (sum>0)
-							dps1=100.0*dps1/sum;
-						else
-							dps1=0;
-						var dpsp= toPoint1(dps1,1)+ "%";
-						graTextOut(15+dx*170,195+dy*170,14,dpsp,0,0,0);
-					}
-
-					//#######################################
-					// Der Automatikbutton
-					if ((objekteZahl[i]>=automatikObjekteShow[i])&&(automatik[i]==0))
-					{
-						if (guthaben>=automatikPreis[i])
-						{
-							bar1(10+dx*170,180+dy*170,150,30,0,155,180,155);
-							graTextOut(20+dx*170,200+dy*170,16,"Auto",0,100,0);
-						}
-						else
-						{
-							bar1(10+dx*170,180+dy*170,150,30,0,155,155,155);
-							graTextOut(20+dx*170,200+dy*170,16,"Auto",130,130,130);
-						}
-						var text="$" + toPoint2(toPoint1(automatikPreis[i],3));
-						graTextOut(70+dx*170,200+dy*170,14,text,0,0,0);
+						bar(sx,     sy, 4, 25, 100, 100, 100);
+						bar(sx + 4, sy, 2, 25, 100, 150, 100);
 					}
 				}
-				
-				
-				
-				
-				
-				
-				
-				if ((objekteZahl[i]>=10+i*4)&&(i<11))
-					objektAktiv[i+1]=1;
 			}
 
-			//############################################
-			// Bonesen Boni Bonusse
-			bar1(530,55,210,650,1,150,150,170);
+			//---------------------------------------
+			// Anzeige der erreichten Halbierungsstufen (5 Felder für 10/20/40/60/80;
+			// die Stufen 100 und 120 werden nicht angezeigt)
+			bar1(136 + ox, 95 + oy, 25, 30, 1, 100, 100, 100);
+			for (let k = 0; k < 5; k++)
+				bar(138 + ox, 98 + k * 5 + oy, 20, 4, 130, 130, 130);
 
-			for(var i=0;i<11;i++)
+			if (objekteZahl[i] >= 10) bar(138 + ox, 118 + oy, 20, 4, 50, 50, 250);
+			if (objekteZahl[i] >= 20) bar(138 + ox, 113 + oy, 20, 4, 50, 50, 250);
+			if (objekteZahl[i] >= 40) bar(138 + ox, 108 + oy, 20, 4, 50, 50, 250);
+			if (objekteZahl[i] >= 60) bar(138 + ox, 103 + oy, 20, 4, 50, 50, 250);
+			if (objekteZahl[i] >= 80) bar(138 + ox,  98 + oy, 20, 4, 50, 50, 250);
+
+			//---------------------------------------
+			// KAUFEN-Button (grün = genug Guthaben)
+			if (guthaben >= aktuellerPreis[i])
 			{
-				bar1(540,63+i*58,190,50,1,180,180,160);
-
+				bar1(10 + ox, 130 + oy, 150, 30, 0, 155, 180, 155);
+				einkaufswagen(ox, oy, 0);
 			}
-			
-			//b_buchstabe[i]=0;
-			//b_faktor[i]=120.1;
-			//b_preis[i]=202394;
-			//b_gekauft[i]=0;
-			//b_sichtarkeitsUmsatz[i]=0;
-
-			var bonizaehler=0;
-			for(var i=0;i<11;i++)	// Bonizahl
+			else
 			{
-				var b="";
-				if (b_buchstabe[i]==0) b="A";if (b_buchstabe[i]==1)  b="B";if (b_buchstabe[i]==2) b="C";
-				if (b_buchstabe[i]==3) b="D";if (b_buchstabe[i]==4)  b="E";if (b_buchstabe[i]==5) b="F";
-				if (b_buchstabe[i]==6) b="G";if (b_buchstabe[i]==7)  b="H";if (b_buchstabe[i]==8) b="I";
-				if (b_buchstabe[i]==9) b="J";if (b_buchstabe[i]==10) b="K";if (b_buchstabe[i]==11) b="L";
+				bar1(10 + ox, 130 + oy, 150, 30, 0, 155, 155, 155);
+				einkaufswagen(ox, oy, 105);
+			}
+			graTextOut(65 + ox, 150 + oy, 16, "$" + formatGeld(aktuellerPreis[i]), 0, 0, 0);
 
-				if ((guthaben>=b_preis[i])&&(b_gekauft[i]==0)&&(objektAktiv[i]==1))
-					graTextOut(545,103+i*58,40,b,0,100,0);
+			//---------------------------------------
+			// $/s-Anzeige und Anteil am Gesamtertrag (nur bei Automatik)
+			if (automatik[i] > 0)
+			{
+				const dps = dollarProSekunde(i);
+				graTextOut(15 + ox, 175 + oy, 14, "$" + formatGeld(dps) + "/s", 0, 0, 0);
+
+				const anteil = (summeDps > 0) ? 100.0 * dps / summeDps : 0;
+				graTextOut(15 + ox, 195 + oy, 14, toPoint1(anteil, 1) + "%", 0, 0, 0);
+			}
+
+			//---------------------------------------
+			// AUTO-Button (erst ab automatikObjekteShow Stück sichtbar)
+			if (objekteZahl[i] >= automatikObjekteShow[i] && automatik[i] == 0)
+			{
+				if (guthaben >= automatikPreis[i])
+				{
+					bar1(10 + ox, 180 + oy, 150, 30, 0, 155, 180, 155);
+					graTextOut(20 + ox, 200 + oy, 16, "Auto", 0, 100, 0);
+				}
 				else
-					graTextOut(545,103+i*58,40,b,150,155,155);
-			
-						
-				var text="* " + toPoint1((b_faktor[i]-1)*100,1) + "%";
-				graTextOut(590,83+i*58,14,text,0,0,0);
-				
-				var text="$" + toPoint2(toPoint1(b_preis[i],3));
-				graTextOut(600,103+i*58,14,text,0,0,0);
-
-
-				if (b_gekauft[i]!=0)
 				{
-					for(var j=0;j<6;j++)
+					bar1(10 + ox, 180 + oy, 150, 30, 0, 155, 155, 155);
+					graTextOut(20 + ox, 200 + oy, 16, "Auto", 130, 130, 130);
+				}
+				graTextOut(70 + ox, 200 + oy, 14, "$" + formatGeld(automatikPreis[i]), 0, 0, 0);
+			}
+		}
+
+		function zeichneBoni()
+		{
+			bar1(530, 55, 210, 650, 1, 150, 150, 170);
+
+			for (let i = 0; i < ANZAHL_BONI; i++)
+			{
+				const oy = i * 58;
+				bar1(540, 63 + oy, 190, 50, 1, 180, 180, 160);
+
+				// Buchstabe grün = kaufbar
+				if (guthaben >= b_preis[i] && b_gekauft[i] == 0 && objektAktiv[i] == 1)
+					graTextOut(545, 103 + oy, 40, BUCHSTABEN[i], 0, 100, 0);
+				else
+					graTextOut(545, 103 + oy, 40, BUCHSTABEN[i], 150, 155, 155);
+
+				graTextOut(590,  83 + oy, 14, "* " + toPoint1((b_faktor[i] - 1) * 100, 1) + "%", 0, 0, 0);
+				graTextOut(600, 103 + oy, 14, "$" + formatGeld(b_preis[i]), 0, 0, 0);
+
+				// Haken = gekauft
+				if (b_gekauft[i] != 0)
+				{
+					for (let j = 0; j < 6; j++)
 					{
-						line(680+j,88+i*58,695+j,100+i*58,0,100,0);
-						line(695+j,100+i*58,715+j,70+i*58,0,100,0);
+						line(680 + j,  88 + oy, 695 + j, 100 + oy, 0, 100, 0);
+						line(695 + j, 100 + oy, 715 + j,  70 + oy, 0, 100, 0);
 					}
 				}
-				
-				
-				bonizaehler++;
-				if (bonizaehler>10)
-					break;
 			}
-						
-			if (objekteZahl[11]>39)
-			{
-				welt*=1.1;
-
-				
-				guthaben=0;
-
-				for(var i=0;i<15;i++)
-				{
-					objektAktiv[i]=0;
-					automatik[i]=0;
-					automatikObjekteShow[i]=10
-					objekteZahl[i]=1;
-					aktuelleArbeitsDauer[i]=0;
-				}
-		
-				objektAktiv[0]=1;
-
-				aktuellerPreis[0]=4.0;			//A
-				preisSteigerung[0]=1.07;
-				automatikPreis[0]=100;
-				verdienst[0]=1;
-				arbeitsDauer[0]=25;	// eigendlich 64
-		
-				aktuellerPreis[1]=60.0;			//B
-				preisSteigerung[1]=1.15;
-				automatikPreis[1]=4000;
-				verdienst[1]=30;
-				arbeitsDauer[1]=50;	// eigendlich 64
-		
-				aktuellerPreis[2]=1000.0;		//C
-				preisSteigerung[2]=1.12;
-				automatikPreis[2]=22000;
-				verdienst[2]=260;
-				arbeitsDauer[2]=100;	// eigendlich 64
-		
-				aktuellerPreis[3]=8600.0;		//D
-				preisSteigerung[3]=1.135;
-				automatikPreis[3]=200000;
-				verdienst[3]=1080;
-				arbeitsDauer[3]=180;	// eigendlich 64
-		
-				aktuellerPreis[4]=80000.0;		// 12s
-				preisSteigerung[4]=1.145;		//E
-				automatikPreis[4]=550000;
-				verdienst[4]=25000;
-				arbeitsDauer[4]=280;	// eigendlich 64
-		
-				aktuellerPreis[5]=1000000.0;		// 20s
-				preisSteigerung[5]=1.13;		//F
-				automatikPreis[5]=10000000;
-				verdienst[5]=75000;
-				arbeitsDauer[5]=300;	// eigendlich 64
-		
-				aktuellerPreis[6]=2840000.0;		// 30s
-				preisSteigerung[6]=1.10;		//G
-				automatikPreis[6]=60000000;
-				verdienst[6]=380000;
-				arbeitsDauer[6]=400;	// eigendlich 64
-		
-				aktuellerPreis[7]=4000000.0;		// 40s
-				preisSteigerung[7]=1.11;		//H
-				automatikPreis[7]=300000000;
-				verdienst[7]=950000;
-				arbeitsDauer[7]=500;
-		
-				aktuellerPreis[8]=8000000.0;		//I
-				preisSteigerung[8]=1.18;
-				automatikPreis[8]=1000000000;
-				verdienst[8]=2000000;
-				arbeitsDauer[8]=600;
-				
-				aktuellerPreis[9]=1000000000.0;		//J
-				preisSteigerung[9]=1.04;
-				automatikPreis[9]=60000000000;
-				verdienst[9]=4000000;
-				arbeitsDauer[9]=700;
-		
-				aktuellerPreis[10]=6000000000.0;		//K
-				preisSteigerung[10]=1.08;
-				automatikPreis[10]=500000000000;
-				verdienst[10]=9000000;
-				arbeitsDauer[10]=800;
-		
-				aktuellerPreis[11]=50000000000.0;		//L
-				preisSteigerung[11]=1.03;
-				automatikPreis[11]=1000000000000;
-				verdienst[11]=2000000000;
-				arbeitsDauer[11]=900;
-		
-				for(var i=0;i<11;i++)
-				{
-					b_buchstabe[i]=i;
-					b_gekauft[i]=0;
-				}
-			}
-				
-				
-			
 		}
 
-		function start()
+		// Zeichnet den kompletten Bildschirm (früher go(), dort war auch Spiellogik drin)
+		function zeichnen(jetzt)
 		{
-			context.fillStyle="#ffffff";
+			context.fillStyle = "#ffffff";
 			context.fillRect(0, 0, canvas.width, canvas.height);
-			
-			bar(0,0,600,600,255,255,255);
+			bar(0, 0, 750, 740, 200, 200, 170);
 
-			setInterval(go, 10);	// bewirkt das die Funktion go  dann und wann aufgerufen wird je gruesser die Zahl desto langsamer (10 -> 0.01 Sekunde)
-			setInterval(go1, 100);	// bewirkt das die Funktion go1 dann und wann aufgerufen wird je gruesser die Zahl desto langsamer (100 -> 0.1 Sekunde)
+			graTextOut(300, 40, 12, "stupid sensless crazy game (please DO NOT play)", 0, 0, 0);
+			graTextOut(660, 12, 12, VERSION, 0, 0, 0);
+
+			graTextOut( 10, 40, 30, "$" + formatGeld(guthaben), 0, 0, 0);
+			graTextOut(300, 12, 12, "Umsatz: $" + formatGeld(umsatz), 0, 0, 0);
+			graTextOut(450, 12, 12, "Klicks: " + clicks, 0, 0, 0);
+
+			bar(10, 45, 730, 3, 0, 0, 0);
+
+			// Summe $/s aller automatisierten Objekte – einmal berechnen statt in jeder Kachel neu
+			let summeDps = 0;
+			for (let d = 0; d < ANZAHL_OBJEKTE; d++)
+				if (automatik[d] > 0)
+					summeDps += dollarProSekunde(d);
+
+			// Animationsphase 0..59 im 10-ms-Raster wie früher gozaehler % 60
+			const animPhase = Math.floor(jetzt / 10) % 60;
+
+			for (let i = 0; i < ANZAHL_OBJEKTE; i++)
+				if (objektAktiv[i] > 0)
+					zeichneKachel(i, summeDps, animPhase);
+
+			zeichneBoni();
 		}
-		
-		start();	// hier wird das ganze gestartet 
-		
-		</script>
-	</body>
+
+		//======================================================================================
+		// Hauptschleife
+		//
+		// Original: setInterval(go, 10) zum Zeichnen und setInterval(go1, 100) für die Logik.
+		// Problem: Browser drosseln Timer in Hintergrund-Tabs auf 1x pro Sekunde (oder seltener),
+		// das Spiel lief dort also mindestens 10x langsamer. Außerdem wurde 100x pro Sekunde
+		// gezeichnet, auch wenn der Bildschirm nur 60 Hz hat.
+		//
+		// Jetzt: requestAnimationFrame zum Zeichnen; die Logik holt die vergangene Zeit in
+		// festen 0,1-s-Takten nach (deterministisch, unabhängig von der Bildrate).
+		//======================================================================================
+
+		let letzteZeit = performance.now();
+		let zeitRest   = 0;
+
+		function frame(jetzt)
+		{
+			zeitRest  += jetzt - letzteZeit;
+			letzteZeit = jetzt;
+
+			let ticks = Math.floor(zeitRest / TICK_MS);
+			if (ticks > MAX_NACHHOL_TICKS)
+			{
+				ticks    = MAX_NACHHOL_TICKS;   // sehr lange Pause (Standby): Rest verwerfen
+				zeitRest = 0;
+			}
+			else
+				zeitRest -= ticks * TICK_MS;
+
+			for (let t = 0; t < ticks; t++)
+				spielTick();
+
+			zeichnen(jetzt);
+			requestAnimationFrame(frame);
+		}
+
+		initObjekte();
+		requestAnimationFrame(frame);   // hier wird das Ganze gestartet
+	})();
+	</script>
+</body>
 </html>
