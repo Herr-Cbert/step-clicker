@@ -103,6 +103,40 @@
   			return arr_int[0]+sep+arr_int[1];
 		}
 
+		function toPoint2(number)
+		{
+			var laenge=0;
+			var erg="----";
+
+			laenge=number.length;
+
+			if (laenge>8)
+			{
+				if (laenge%4==1)
+					erg=number[0]+","+number[2]+number[3]+number[4];
+				if (laenge%4==2)
+					erg=number[0]+number[1]+","+number[3]+number[4]+number[5];
+				if (laenge%4==3)
+					erg=number[0]+number[1]+number[2]+","+number[4]+number[5]+number[6];
+				
+				if (toInteger((laenge-10)/4)==0) erg+="K";	// Thousand
+				if (toInteger((laenge-10)/4)==1) erg+="M";	// Million
+				if (toInteger((laenge-10)/4)==2) erg+="B";	// Billion
+				if (toInteger((laenge-10)/4)==3) erg+="T"; 	// Trillion
+				if (toInteger((laenge-9)/4)==4) erg+="q";	// Quadrillion
+				if (toInteger((laenge-9)/4)==5) erg+="Q";	// Quintillion
+				if (toInteger((laenge-9)/4)==6) erg+="s";	// Sextillion
+				if (toInteger((laenge-9)/4)==7) erg+="S";	// Septillion
+				if (toInteger((laenge-9)/4)==8) erg+="Oc";	// Octillion
+				if (toInteger((laenge-9)/4)==9) erg+="N";	// Nonillion
+				if (toInteger((laenge-9)/4)==10) erg+="D";	// Decillion
+			}
+			else
+				return number;
+
+			return erg;
+		}
+	
 		function rgbToString(r, g, b)
 		{
 			if (r<16)	ergr="0"+(r).toString(16);
@@ -163,60 +197,154 @@
 		//###################################
 		// die Variablen
 
-		var aktuellerPreis=1.0;
-		var preisSteigerung=1.2;
 
-		var automatik=0;
-		var automatikPreis=100;
-		var automatikObjekteShow=10
-		
-		var objekteZahl=1;
-		var objektMultiplikator=1.0;
-		var verdienst=1;
+
 		var guthaben=0;
-
-		var arbeitsDauer=32;	// in 0.1 Sekunden Schritten
-		var arbeitsDauerDelta=1;
-		var aktuelleArbeitsDauer=0;
+		var umsatz=0;
 
 
 
+		// pro objekt
+
+		var objektAktiv=[];
+		var aktuellerPreis=[];
+		var preisSteigerung=[];
+
+		var automatik=[];
+		var automatikPreis=[];
+		var automatikObjekteShow=[];
+		
+		var objekteZahl=[];
+		var objektMultiplikator=[];
+		var verdienst=[];
+
+		var arbeitsDauer=[];	// in 0.1 Sekunden Schritten
+		var arbeitsDauerDelta=[];
+		var aktuelleArbeitsDauer=[];
 
 
+
+		for(var i=0;i<10;i++)
+		{
+			objektAktiv[i]=0;
+
+			automatik[i]=0;
+			automatikObjekteShow[i]=10
+		
+			objekteZahl[i]=1;
+
+			aktuelleArbeitsDauer[i]=0;
+		}
+
+
+		aktuellerPreis[0]=4.0;
+		preisSteigerung[0]=1.06;
+		automatikPreis[0]=30;
+		verdienst[0]=1;
+		arbeitsDauer[0]=25;	// eigendlich 64
+
+		aktuellerPreis[1]=60.0;
+		preisSteigerung[1]=1.15;
+		automatikPreis[1]=2000;
+		verdienst[1]=30;
+		arbeitsDauer[1]=50;	// eigendlich 64
+
+		aktuellerPreis[2]=700.0;
+		preisSteigerung[2]=1.14;
+		automatikPreis[2]=22000;
+		verdienst[2]=260;
+		arbeitsDauer[2]=100;	// eigendlich 64
+
+		aktuellerPreis[3]=8600.0;
+		preisSteigerung[3]=1.145;
+		automatikPreis[3]=100000;
+		verdienst[3]=1080;
+		arbeitsDauer[3]=180;	// eigendlich 64
+
+		aktuellerPreis[4]=25000.0;		// 12s
+		preisSteigerung[4]=1.125;
+		automatikPreis[4]=550000;
+		verdienst[4]=25000;
+		arbeitsDauer[4]=280;	// eigendlich 64
+
+		aktuellerPreis[5]=75000.0;		// 20s
+		preisSteigerung[5]=1.12;
+		automatikPreis[5]=2000000;
+		verdienst[5]=75000;
+		arbeitsDauer[5]=300;	// eigendlich 64
+
+		aktuellerPreis[6]=840000.0;		// 30s
+		preisSteigerung[6]=1.11;
+		automatikPreis[6]=10000000;
+		verdienst[6]=380000;
+		arbeitsDauer[6]=400;	// eigendlich 64
+
+		aktuellerPreis[7]=2000000.0;		// 40s
+		preisSteigerung[7]=1.10;
+		automatikPreis[7]=25000000;
+		verdienst[7]=950000;
+		arbeitsDauer[7]=500;	// eigendlich 64
+
+		aktuellerPreis[8]=8000000.0;		// 40s
+		preisSteigerung[8]=1.05;
+		automatikPreis[8]=50000000;
+		verdienst[8]=2000000;
+		arbeitsDauer[8]=800;	// eigendlich 64
+
+
+
+
+
+
+		objektAktiv[0]=1;
 
 		function Mausklick (evt) 
 		{
 			x=evt.offsetX;
 			y=evt.offsetY;
-	
-			if ((x>10)&&(x<70)&&(y>50)&&(y<80))	// GO Button
+
+
+			for(var i=0;i<10;i++)
 			{
-				if (aktuelleArbeitsDauer==0)
-				 	aktuelleArbeitsDauer=arbeitsDauer;
-			}
-			
-			if ((x>10)&&(x<160)&&(y>130)&&(y<160))	// BUY Button
-			{
-				if (guthaben>=aktuellerPreis)
+				var dx=i%3;
+				var dy=1;
+
+				if (i<3) dy=0;
+			 	if ((i>2) && (i<6)) dy=1;
+			 	if (i>5) dy=2;
+
+				if (objektAktiv[i]>0)
 				{
-					guthaben-=aktuellerPreis;
-					objekteZahl++;
-					aktuellerPreis*=preisSteigerung;
-					if ((objekteZahl==10) || (objekteZahl==25) || (objekteZahl==50))	
-						arbeitsDauerDelta*=2;
-				}
-			}
-			
-			if ((x>10)&&(x<160)&&(y>170)&&(y<200))	// automatik Button
-			{
-				if (automatik==0)
-				{
-					if (guthaben>=automatikPreis)
+					if ((x>10+dx*170)&&(x<70+dx*170)&&(y>60+dy*170)&&(y<90+dy*170))	// GO Button
 					{
-						automatik=1;
-						guthaben-=automatikPreis;
-						if (aktuelleArbeitsDauer==0)
-				 			aktuelleArbeitsDauer=arbeitsDauer;
+						if (aktuelleArbeitsDauer[i]==0)
+						 	aktuelleArbeitsDauer[i]=arbeitsDauer[i];
+					}
+			
+					if ((x>10+dx*170)&&(x<160+dx*170)&&(y>130+dy*170)&&(y<160+dy*170))	// BUY Button
+					{
+						if (guthaben>=aktuellerPreis[i])
+						{
+							guthaben-=aktuellerPreis[i];
+							objekteZahl[i]++;
+							aktuellerPreis[i]*=preisSteigerung[i];
+							if ((objekteZahl[i]==10) || (objekteZahl[i]==25) || (objekteZahl[i]==50) || (objekteZahl[i]==100) || (objekteZahl[i]==250) || (objekteZahl[i]==500) || (objekteZahl[i]==1000))	
+								arbeitsDauer[i]/=2;
+						}
+					}
+			
+					if ((x>10+dx*170)&&(x<160+dx*170)&&(y>180+dy*170)&&(y<210+dy*170))	// automatik Button
+					{
+						if (automatik[i]==0)
+						{
+							if (guthaben>=automatikPreis[i])
+							{
+								automatik[i]=1;
+								guthaben-=automatikPreis[i];
+								if (aktuelleArbeitsDauer[i]==0)
+						 			aktuelleArbeitsDauer[i]=arbeitsDauer[i];
+							}
+						}
 					}
 				}
 			}
@@ -230,15 +358,22 @@
 //######################################################################################################## go1
 		function go1()	// 0.1 Sekunde
 		{
-			if (aktuelleArbeitsDauer>0)
+			for(var i=0;i<10;i++)
 			{
-				aktuelleArbeitsDauer-=arbeitsDauerDelta;
-				if (aktuelleArbeitsDauer<=0)
+				if (objektAktiv[i]>0)
 				{
-					aktuelleArbeitsDauer=0;
-					guthaben+=verdienst*objekteZahl;
-					if (automatik==1)
-						aktuelleArbeitsDauer=arbeitsDauer;
+					if (aktuelleArbeitsDauer[i]>0)
+					{
+						aktuelleArbeitsDauer[i]--;
+						if (aktuelleArbeitsDauer[i]<=0)
+						{
+							aktuelleArbeitsDauer[i]=0;
+							guthaben+=verdienst[i]*objekteZahl[i];
+							umsatz+=verdienst[i]*objekteZahl[i];
+							if (automatik[i]==1)
+								aktuelleArbeitsDauer[i]=arbeitsDauer[i];
+						}
+					}
 				}
 			}
 		}
@@ -255,55 +390,100 @@
 			bar(0,0,620,600,255,255,255);
 		
 			
-//			bar(10,100,100,30,55,55,55);
 
 			graTextOut(560,8,12,"V 0.80124",0,0,0);
 
-			var text= toPoint(guthaben) + " $";
+			var text= "Stock: $" + toPoint2(toPoint1(guthaben,3));
 			graTextOut(10,40,30,text,0,0,0);
 			
+			var text= "Umsatz: $" + toPoint2(toPoint1(umsatz,3));
+			graTextOut(300,40,12,text,0,0,0);
 
-			bar(10,50,60,30,155,155,155);
-			graTextOut(30,70,16,"GO",0,0,0);
-			var text=toPoint(objekteZahl) + " x " +toPoint1(objektMultiplikator,2);
-			graTextOut(80,70,16,text,0,0,0);
+			bar(10,45,500,3,0,0,0);
 
-			graTextOut(80,70,16,text,0,0,0);
-
-
-
-			bar(10,85,152,30,100,100,100);
-			if (aktuelleArbeitsDauer>0)
+			for(var i=0;i<10;i++)
 			{
-				bar(12,87,(arbeitsDauer-aktuelleArbeitsDauer)*150/arbeitsDauer,26,0,200,200)
-				var text=toPoint(100-aktuelleArbeitsDauer*100/128);
-				graTextOut(20,105,16,text,0,0,0);
+				var dx=i%3;
+			 	var dy=0;
+			 	
+				if (i<3) dy=0;
+			 	if ((i>2) && (i<6)) dy=1;
+			 	if (i>5) dy=2;
+
+			 	
+				if (objektAktiv[i]>0)
+				{
+		
+					bar(5+dx*170,55+dy*170,160,160,200,200,170);
+
+					bar(10+dx*170,60+dy*170,40,30,155,155,155);
+					graTextOut(15+dx*170,80+dy*170,16,"GO",0,0,0);
+					var text=toPoint(objekteZahl[i]) + "x" + toPoint2(toPoint1(verdienst[i],3));
+					graTextOut(60+dx*170,80+dy*170,16,text,0,0,0);
+
+					// der Vortschrittsbalken
+					if (arbeitsDauer[i]>1)
+					{
+						bar(10+dx*170,95+dy*170,142,30,100,100,100);
+						if (aktuelleArbeitsDauer[i]>0)
+						{
+							var h=(arbeitsDauer[i]-aktuelleArbeitsDauer[i])*140/arbeitsDauer[i];
+							if (h<0) h=0;
+							bar(12+dx*170,97+dy*170,h,26,0,200,200)
+
+							h=100-aktuelleArbeitsDauer[i]*100/arbeitsDauer[i];
+							if (h<0) h=0;
+							graTextOut(20+dx*170,115+dy*170,16,toPoint(h),0,0,0);
+						}
+					}
+					else
+					{
+						bar(10+dx*170, 95+dy*170,142,30,100,100,100);
+						bar(12+dx*170,100+dy*170,138, 8,  0,100,  0);
+						bar(12+dx*170,112+dy*170,138, 8,  0,100,  0);
+					}
+
+					if (objekteZahl[i]>=10)		bar(154+dx*170,  95+dy*170, 6,4,0,0,200);
+					if (objekteZahl[i]>=25)		bar(154+dx*170, 100+dy*170, 6,4,0,0,200);
+					if (objekteZahl[i]>=50)		bar(154+dx*170, 105+dy*170, 6,4,0,0,200);
+					if (objekteZahl[i]>=100)	bar(154+dx*170, 110+dy*170, 6,4,0,0,200);
+					if (objekteZahl[i]>=250)	bar(154+dx*170, 115+dy*170, 6,4,0,0,200);
+					if (objekteZahl[i]>=500)	bar(154+dx*170, 120+dy*170, 6,4,0,0,200);
+
+
+					// Buy Button
+					if (guthaben>=aktuellerPreis[i])
+						bar(10+dx*170,130+dy*170,150,30,0,155,0);
+					else
+						bar(10+dx*170,130+dy*170,150,30,155,155,155);
+					var text="Buy $" + toPoint2(toPoint1(aktuellerPreis[i],3));
+					graTextOut(15+dx*170,150+dy*170,16,text,0,0,0);
+
+
+					if (automatik[i]>0)
+					{
+						var dps1=verdienst[i]*objekteZahl[i]/(arbeitsDauer[i]/10);
+						var dps="$" +toPoint2(toPoint1(dps1,3));
+						graTextOut(15+dx*170,175+dy*170,14,dps,0,0,0);
+					}
+
+					// Der Automatikbutton
+					if ((objekteZahl[i]>=automatikObjekteShow[i])&&(automatik[i]==0))
+					{
+						if (guthaben>=automatikPreis[i])
+							bar(10+dx*170,180+dy*170,150,30,0,155,0);
+						else
+							bar(10+dx*170,180+dy*170,150,30,155,155,155);
+						var text="AUTO $" + toPoint2(toPoint1(automatikPreis[i],3));
+						graTextOut(20+dx*170,200+dy*170,16,text,0,0,0);
+					}
+					
+				}
+				if ((objekteZahl[i]>=10)&&(i<8))
+					objektAktiv[i+1]=1;
+					
 			}
-
-			if (objekteZahl>=10)	bar(164,85, 6,4,0,0,200);
-			if (objekteZahl>=25)	bar(164,90, 6,4,0,0,200);
-			if (objekteZahl>=50)	bar(164,95, 6,4,0,0,200);
-			if (objekteZahl>=100)	bar(164,100,6,4,0,0,200);
-
-
-
-			if (guthaben>=aktuellerPreis)
-				bar(10,130,150,30,0,155,0);
-			else
-				bar(10,130,150,30,155,155,155);
-			var text="Buy (" + toPoint1(aktuellerPreis,2) + " $)";
-			graTextOut(15,150,16,text,0,0,0);
-
-			// Der Automatikbutton
-			if ((objekteZahl>=automatikObjekteShow)&&(automatik==0))
-			{
-				if (guthaben>=automatikPreis)
-					bar(10,170,150,30,0,155,0);
-				else
-					bar(10,170,150,30,155,155,155);
-				var text="AUTO " + toPoint(automatikPreis) + " $";
-				graTextOut(20,190,16,text,0,0,0);
-			}
+			
 		}
 
 		function start()
