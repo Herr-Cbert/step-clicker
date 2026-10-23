@@ -1,0 +1,296 @@
+<html>
+	<head>
+		<title>Test</title>
+	</head>
+	
+	<body>
+	    <canvas id="myCanvas" width="800" height="600"></canvas>
+		<script type="text/javascript">
+	
+//		document.onkeypress = Tastendruck;	// die Funktion Tastendruck wird angemeldet
+		document.onclick = Mausklick;		// die Funktion Mausklick wird angemeldet
+    	
+		var canvas = document.getElementById('myCanvas');
+    	var context = canvas.getContext('2d');
+		var x=100;
+		var y=100;
+
+//		alert( " Hallo " );
+
+		function toInteger(number)
+		{ 
+			return Math.round( Number(number) ); 
+		}
+
+		function toPoint(number)
+		{
+        	var laenge=0;		// laenge der Nachkommastellen
+            var sep=" ";		// Normalerweise Komma
+            var th_sep=".";		// Tausenderseparator
+
+ 			number = Math.round( number * Math.pow(10, laenge) ) / Math.pow(10, laenge);
+  			str_number = number+"";
+			arr_int = str_number.split(".");
+			
+			if(!arr_int[0]) 
+				arr_int[0] = "0";
+			
+			if(!arr_int[1]) 
+				arr_int[1] = "";
+			
+			if(arr_int[1].length < laenge)
+			{
+    			nachkomma = arr_int[1];
+    			for(i=arr_int[1].length+1; i <= laenge; i++)
+					nachkomma += "0";  
+    			
+				arr_int[1] = nachkomma;
+  			}
+  			if(th_sep != "" && arr_int[0].length > 3)
+			{
+    			Begriff = arr_int[0];
+    			arr_int[0] = "";
+    			
+				for(j = 3; j < Begriff.length ; j+=3)
+				{
+      				Extrakt = Begriff.slice(Begriff.length - j, Begriff.length - j + 3);
+      				arr_int[0] = th_sep + Extrakt +  arr_int[0] + "";
+    			}
+    			
+				str_first = Begriff.substr(0, (Begriff.length % 3 == 0)?3:(Begriff.length % 3));
+    			arr_int[0] = str_first + arr_int[0];
+  			}
+  			return arr_int[0]+sep+arr_int[1];
+		}
+		
+		function toPoint1(number, laenge)	// laenge ist laenge der Nachkommastellen
+		{
+            var sep=",";		// Normalerweise Komma
+            var th_sep=".";		// Tausenderseparator
+
+ 			number = Math.round( number * Math.pow(10, laenge) ) / Math.pow(10, laenge);
+  			str_number = number+"";
+			arr_int = str_number.split(".");
+			
+			if(!arr_int[0]) 
+				arr_int[0] = "0";
+			
+			if(!arr_int[1]) 
+				arr_int[1] = "";
+			
+			if(arr_int[1].length < laenge)
+			{
+    			nachkomma = arr_int[1];
+    			for(i=arr_int[1].length+1; i <= laenge; i++)
+					nachkomma += "0";  
+    			
+				arr_int[1] = nachkomma;
+  			}
+  			if(th_sep != "" && arr_int[0].length > 3)
+			{
+    			Begriff = arr_int[0];
+    			arr_int[0] = "";
+    			
+				for(j = 3; j < Begriff.length ; j+=3)
+				{
+      				Extrakt = Begriff.slice(Begriff.length - j, Begriff.length - j + 3);
+      				arr_int[0] = th_sep + Extrakt +  arr_int[0] + "";
+    			}
+    			
+				str_first = Begriff.substr(0, (Begriff.length % 3 == 0)?3:(Begriff.length % 3));
+    			arr_int[0] = str_first + arr_int[0];
+  			}
+  			return arr_int[0]+sep+arr_int[1];
+		}
+
+		function rgbToString(r, g, b)
+		{
+			if (r<16)	ergr="0"+(r).toString(16);
+			else		ergr=(r).toString(16);
+			if (g<16)	ergg="0"+(g).toString(16);
+			else		ergg=(g).toString(16);
+			if (b<16)	ergb="0"+(b).toString(16);
+			else		ergb=(b).toString(16);
+			return ergr+ergg+ergb;
+		}
+
+
+		function bar(x, y, breite, hoehe, r, g, b)
+		{
+			context.fillStyle="#"+rgbToString(r,g,b);
+			context.fillRect(x,y,breite,hoehe);
+		}
+			
+		function line(x1, y1, x2, y2, r, g, b)
+		{
+			context.strokeStyle="#"+(r).toString(16)+(g).toString(16)+(b).toString(16);
+			context.beginPath();
+			context.moveTo(x1,y1);
+			context.lineTo(x2,y2);
+			context.stroke();
+		}
+		
+		function circle(x, y, radius, r, g, b)
+		{
+			context.strokeStyle="#"+(r).toString(16)+(g).toString(16)+(b).toString(16);
+			context.beginPath();
+			for(i=1;i<=radius;i++)
+				context.arc(x,y,i,0,2*Math.PI);
+			context.stroke();
+		}
+			
+		function graTextOut(x, y, size, text, r, g, b) 
+		{
+			context.fillStyle="#"+rgbToString(r,g,b);
+			context.font=(size).toString(10)+"px Times New Roman";
+			context.fillText(text, x, y);
+		}
+
+
+
+
+		//###################################
+		//	Der Rohstoff 
+
+		var transportlevel=0;
+		var clicksPerRohstoff=100;
+		var clicksPerRohstoffSteigerung=1.5;
+		var rohstoff=10;
+		var rohstoffDelta=10;
+		var rohstoffDeltaSteigerung=1.2;
+
+		
+		var autoRohstoffDelta=1;
+		var autoRohstoffDeltaSteigerung=1.1;
+
+
+
+
+		//###################################
+		// Die Maschinen
+		
+		var	helderzahl=100;
+		var m_maximaleAusbaustufe=[];	// muss durch 5 teilbar sein
+		var m_aktuelleAusbaustufe=[];
+
+		var m_preis=[];
+		var m_preisSteigerung=[];
+		var	m_bonusPreis=[];
+		var	m_bonusPreisSteigerung=[];
+		var	m_aktuellerBonusPreis=[];		// alle 5 Ausbaustufen gibt es einen Bonuspreis
+			
+		var m_clicksPerSecond=[];
+		var m_clicksPerSecondSteigerung=[];
+
+		var	m_multiplikator=[];
+
+		for(var i=0;i<100;i++)
+		{
+			m_maximaleAusbaustufe[i]=100;
+			m_aktuelleAusbaustufe[i]=0;
+
+			m_preis[i]=i*10;
+			m_preisSteigerung[i]=1.01;
+			m_bonusPreis[i]=i*20;
+			m_bonusPreisSteigerung[i]=i*20;
+			m_aktuellerBonusPreis[i]=0;
+			
+			m_clicksPerSecond[i]=i;
+			m_clicksPerSecondSteigerung[i]=1.02;
+
+			m_multiplikator[i]=1.0;
+		}
+			
+
+
+		function Mausklick (evt) 
+		{
+			x=evt.offsetX;
+			y=evt.offsetY;
+	
+			if ((x>15)&&(x<115)&&(y>100)&&(y<130))	// Energie Button
+			{
+				rohstoff+=rohstoffDelta;
+				if (rohstoff>clicksPerRohstoff)
+				{
+					transportlevel++;
+					rohstoff=0;
+					clicksPerRohstoff*=clicksPerRohstoffSteigerung;
+					rohstoffDelta*=rohstoffDeltaSteigerung;
+				}
+			}
+		}
+
+
+
+//########################################################################################################################################################################## go1
+//########################################################################################################################################################################## go1
+//########################################################################################################################################################################## go1
+//########################################################################################################################################################################## go1
+//########################################################################################################################################################################## go1
+//########################################################################################################################################################################## go1
+//########################################################################################################################################################################## go1
+		function go1()	// 0.1 Sekunde
+		{
+			rohstoff+=autoRohstoffDelta;
+			if (rohstoff>clicksPerRohstoff)
+				rohstoff=0;
+			aktuellesRohstoffVolumen*=aktuellesRohstoffVolumenSteigerung;
+			autoRohstoffDelta*=autoRohstoffDeltaSteigerung;
+		}
+
+
+
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+//########################################################################################################################################################################## go
+		function go()
+		{
+			
+			bar(0,0,620,600,255,255,255);
+		
+			
+			bar(10,100,100,30,55,55,55);
+
+			graTextOut(560,8,12,"V 0.80124",0,0,0);
+
+			graTextOut(10,20,16,"Stufe:",0,0,0);
+			var text=toPoint((transportlevel-transportlevel%5)/5+1) + " / " + (transportlevel%5+1);
+			graTextOut(150,20,16,text,0,0,0);
+			
+			graTextOut(10,40,16,"Transportvolumen:",0,0,0);
+			var text=toPoint(rohstoff) + " vom " + toPoint(clicksPerRohstoff);
+			graTextOut(150,40,16,text,0,0,0);
+
+			bar(10,50,300,30,155,155,155);
+			var breite=rohstoff*300.0/clicksPerRohstoff;
+			bar(10,50,breite,30,0,255,0);
+			
+			graTextOut(10,150,16,"Volumen pro Click:",0,0,0);
+			var text=" " + toPoint(rohstoffDelta);
+			graTextOut(150,150,16,text,0,0,0);
+
+		}
+
+		function start()
+		{
+			context.fillStyle="#ffffff";
+			context.fillRect(0, 0, canvas.width, canvas.height);
+			
+			bar(0,0,600,600,255,255,255);
+
+			setInterval(go, 10);	// bewirkt das die Funktion go  dann und wann aufgerufen wird je gruesser die Zahl desto langsamer (10 -> 0.01 Sekunde)
+			setInterval(go1, 100);	// bewirkt das die Funktion go1 dann und wann aufgerufen wird je gruesser die Zahl desto langsamer (100 -> 0.1 Sekunde)
+		}
+		
+		start();	// hier wird das ganze gestartet 
+		
+		</script>
+	</body>
+</html>
